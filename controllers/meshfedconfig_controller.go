@@ -26,21 +26,21 @@ import (
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 )
 
-// MeshFedReconciler reconciles a MeshFed object
-type MeshFedReconciler struct {
+// MeshFedConfigReconciler reconciles a MeshFedConfig object
+type MeshFedConfigReconciler struct {
 	client.Client
 	Log logr.Logger
 }
 
-// +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=meshfeds,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=meshfeds/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=meshfedconfigs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=meshfedconfigs/status,verbs=get;update;patch
 
-func (r *MeshFedReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("meshfed", req.NamespacedName)
+	log := r.Log.WithValues("meshfedconfig", req.NamespacedName)
 
 	// your logic here
-	var fed mmv1.MeshFed
+	var fed mmv1.MeshFedConfig
 	if err := r.Get(ctx, req.NamespacedName, &fed); err != nil {
 		log.Error(err, "unable to fetch Resource")
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
@@ -53,9 +53,9 @@ func (r *MeshFedReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (r *MeshFedReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MeshFedConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&mmv1.MeshFed{}).
+		For(&mmv1.MeshFedConfig{}).
 		Complete(r)
 }
 

@@ -22,8 +22,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// MeshFedSpec defines the desired state of MeshFed
-type MeshFedSpec struct {
+// MeshFedConfigSpec defines the desired state of MeshFedConfig
+type MeshFedConfigSpec struct {
 	// If specified, selects the group (secret) to apply this configuration to
 	TlsContextSelector     string   `json:"tls_context_selector,omitempty"`
 	UseEgressGateway       bool     `json:"use_egress_gateway,omitempty"`
@@ -37,32 +37,32 @@ type MeshFedSpec struct {
 	XXX_sizecache          int32    `json:"-"`
 }
 
-// MeshFedStatus defines the observed state of MeshFed
-type MeshFedStatus struct {
+// MeshFedConfigStatus defines the observed state of MeshFedConfig
+type MeshFedConfigStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true
 
-// MeshFed is the Schema for the meshfeds API
-type MeshFed struct {
+// MeshFedConfig is the Schema for the MeshFedConfigs API
+type MeshFedConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   MeshFedSpec   `json:"spec,omitempty"`
-	Status MeshFedStatus `json:"status,omitempty"`
+	Spec   MeshFedConfigSpec   `json:"spec,omitempty"`
+	Status MeshFedConfigStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// MeshFedList contains a list of MeshFed
-type MeshFedList struct {
+// MeshFedConfigList contains a list of MeshFedConfig
+type MeshFedConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []MeshFed `json:"items"`
+	Items           []MeshFedConfig `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&MeshFed{}, &MeshFedList{})
+	SchemeBuilder.Register(&MeshFedConfig{}, &MeshFedConfigList{})
 }

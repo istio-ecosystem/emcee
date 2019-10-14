@@ -4,7 +4,7 @@ repo: github.ibm.com/istio-research/mc2019
 resources:
 - group: mm
   version: v1
-  kind: MeshFed
+  kind: MeshFedConfig
 - group: mm
   version: v1
   kind: ServiceExposition

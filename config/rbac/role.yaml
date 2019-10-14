@@ -9,7 +9,7 @@ rules:
 - apiGroups:
   - mm.ibm.istio.io
   resources:
-  - meshfeds
+  - meshfedconfigs
   verbs:
   - create
   - delete
@@ -21,7 +21,7 @@ rules:
 - apiGroups:
   - mm.ibm.istio.io
   resources:
-  - meshfeds/status
+  - meshfedconfigs/status
   verbs:
   - get
   - patch
