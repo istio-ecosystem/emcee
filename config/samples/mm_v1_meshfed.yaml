@@ -1,0 +1,7 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: MeshFed
+metadata:
+  name: meshfed-sample
+spec:
+  # Add fields here
+  foo: bar

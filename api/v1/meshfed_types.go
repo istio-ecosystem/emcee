@@ -1,0 +1,68 @@
+/*
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1
+
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+// MeshFedSpec defines the desired state of MeshFed
+type MeshFedSpec struct {
+	// If specified, selects the group (secret) to apply this configuration to
+	TlsContextSelector     string   `json:"tls_context_selector,omitempty"`
+	UseEgressGateway       bool     `json:"use_egress_gateway,omitempty"`
+	EgressGatewaySelector  string   `json:"egress_gateway_selector,omitempty"`
+	EgressGatewayPort      int32    `json:"egress_gateway_port,omitempty"`
+	UseIngressGateway      bool     `json:"use_ingress_gateway,omitempty"`
+	IngressGatewaySelector string   `json:"ingress_gateway_selector,omitempty"`
+	IngressGatewayPort     int32    `json:"ingress_gateway_port,omitempty"`
+	XXX_NoUnkeyedLiteral   struct{} `json:"-"`
+	XXX_unrecognized       []byte   `json:"-"`
+	XXX_sizecache          int32    `json:"-"`
+}
+
+// MeshFedStatus defines the observed state of MeshFed
+type MeshFedStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+}
+
+// +kubebuilder:object:root=true
+
+// MeshFed is the Schema for the meshfeds API
+type MeshFed struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   MeshFedSpec   `json:"spec,omitempty"`
+	Status MeshFedStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+
+// MeshFedList contains a list of MeshFed
+type MeshFedList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []MeshFed `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&MeshFed{}, &MeshFedList{})
+}
