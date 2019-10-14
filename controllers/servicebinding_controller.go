@@ -18,7 +18,7 @@ package controllers
 import (
 	"context"
 
-	"github.com/go-logr/logr"
+	"istio.io/pkg/log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -28,7 +28,6 @@ import (
 // ServiceBindingReconciler reconciles a ServiceBinding object
 type ServiceBindingReconciler struct {
 	client.Client
-	Log logr.Logger
 }
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=servicebindings,verbs=get;list;watch;create;update;patch;delete
@@ -36,18 +35,18 @@ type ServiceBindingReconciler struct {
 
 func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("servicebinding", req.NamespacedName)
+
 	var binding mmv1.ServiceBinding
 	// your logic here
 	if err := r.Get(ctx, req.NamespacedName, &binding); err != nil {
-		log.Error(err, "unable to fetch Resource")
+		log.Warnf("unable to fetch SB resource: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
-	log.Info("****************")
+	log.Warnf("processed SB resource: %v", binding)
 	return ctrl.Result{}, nil
 }
 

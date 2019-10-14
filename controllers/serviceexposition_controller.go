@@ -18,7 +18,7 @@ package controllers
 import (
 	"context"
 
-	"github.com/go-logr/logr"
+	"istio.io/pkg/log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -28,7 +28,6 @@ import (
 // ServiceExpositionReconciler reconciles a ServiceExposition object
 type ServiceExpositionReconciler struct {
 	client.Client
-	Log logr.Logger
 }
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=serviceexpositions,verbs=get;list;watch;create;update;patch;delete
@@ -36,18 +35,17 @@ type ServiceExpositionReconciler struct {
 
 func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("servicebinding", req.NamespacedName)
 	var exposition mmv1.ServiceExposition
 	// your logic here
 	if err := r.Get(ctx, req.NamespacedName, &exposition); err != nil {
-		log.Error(err, "unable to fetch Resource")
+		log.Warnf("unable to fetch SE resource: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
-	log.Info("****************")
+	log.Warnf("processed SE resource: %v", exposition)
 	return ctrl.Result{}, nil
 }
 

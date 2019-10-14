@@ -18,7 +18,7 @@ package controllers
 import (
 	"context"
 
-	"github.com/go-logr/logr"
+	"istio.io/pkg/log"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +29,6 @@ import (
 // MeshFedConfigReconciler reconciles a MeshFedConfig object
 type MeshFedConfigReconciler struct {
 	client.Client
-	Log logr.Logger
 }
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=meshfedconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -37,19 +36,18 @@ type MeshFedConfigReconciler struct {
 
 func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	log := r.Log.WithValues("meshfedconfig", req.NamespacedName)
 
 	// your logic here
 	var fed mmv1.MeshFedConfig
 	if err := r.Get(ctx, req.NamespacedName, &fed); err != nil {
-		log.Error(err, "unable to fetch Resource")
+		log.Warnf("unable to fetch MFC resource: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
-	log.Info("****************")
+	log.Warnf("processed MFC resource: %v", fed)
 	return ctrl.Result{}, nil
 }
 
