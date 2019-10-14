@@ -1,0 +1,21 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: MeshFed
+metadata:
+  name: meshfed1
+spec:
+  egress_gateway_port: 88 
+  ingress_gateway_port: 77
+---
+apiVersion: mm.ibm.istio.io/v1
+kind: ServiceExposition
+metadata:
+  name: se1
+spec:
+  port: 56
+---
+apiVersion: mm.ibm.istio.io/v1
+kind: ServiceBinding
+metadata:
+  name: sb1
+spec:
+  port: 78

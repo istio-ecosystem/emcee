@@ -1,0 +1,7 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: ServiceBinding
+metadata:
+  name: servicebinding-sample
+spec:
+  # Add fields here
+  foo: bar

@@ -1,0 +1,81 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  name: servicebindings.mm.ibm.istio.io
+spec:
+  group: mm.ibm.istio.io
+  names:
+    kind: ServiceBinding
+    listKind: ServiceBindingList
+    plural: servicebindings
+    singular: servicebinding
+  scope: ""
+  validation:
+    openAPIV3Schema:
+      description: ServiceBinding is the Schema for the servicebindings API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ServiceBindingSpec defines the desired state of ServiceBinding
+          properties:
+            alias:
+              description: 'OPTIONAL: This is an optional field. If not specified,
+                the service name will be used as the exposed service name.'
+              type: string
+            endpoints:
+              description: To be filled in by cluster for exposing; already filled
+                in for binding
+              items:
+                type: string
+              type: array
+            mesh_fed_config_selector:
+              description: 'REQUIRED: The name of the group. Can be more than one
+                group (?)'
+              type: string
+            name:
+              description: 'REQUIRED: The group in which the service being bound'
+              type: string
+            namespace:
+              type: string
+            port:
+              description: 'REQUIRED: The port of the exposed service. TODO: consider
+                adding support for multiple ports, their types and names.'
+              format: int32
+              type: integer
+            subset:
+              description: 'OPTIONAL: `subset` allows the operator to choose a specific
+                subset (service version) in cases when there are multiple subsets
+                available for the exposed service. Applicable only to services within
+                the mesh. The subset  must be defined in a corresponding DestinationRule.
+                For binding services, it represents the service as a subset if specified.'
+              type: string
+          type: object
+        status:
+          description: ServiceBindingStatus defines the observed state of ServiceBinding
+          type: object
+      type: object
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

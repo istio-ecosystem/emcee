@@ -26,3 +26,43 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - mm.ibm.istio.io
+  resources:
+  - servicebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - mm.ibm.istio.io
+  resources:
+  - servicebindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - mm.ibm.istio.io
+  resources:
+  - serviceexpositions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - mm.ibm.istio.io
+  resources:
+  - serviceexpositions/status
+  verbs:
+  - get
+  - patch
+  - update
