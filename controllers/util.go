@@ -40,11 +40,9 @@ func GetMeshFedConfig(ctx context.Context, reconciler interface{}, mfcSelector s
 			case (*ServiceBindingReconciler):
 				r, _ := reconciler.(*ServiceBindingReconciler)
 				err = r.List(ctx, &mfcList, client.MatchingLabels{s[0]: s[1]})
-				log.Infof("------------------------------------------------1")
 			case (*ServiceExpositionReconciler):
 				r, _ := reconciler.(*ServiceExpositionReconciler)
 				err = r.List(ctx, &mfcList, client.MatchingLabels{s[0]: s[1]})
-				log.Infof("------------------------------------------------2")
 			}
 			if err != nil {
 				log.Warnf("Unable to fetch. Error: %v", err)
