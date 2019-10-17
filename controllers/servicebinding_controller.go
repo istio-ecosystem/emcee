@@ -17,7 +17,6 @@ package controllers
 
 import (
 	"context"
-	"strings"
 
 	"istio.io/pkg/log"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,31 +47,7 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	}
 
 	mfcSelector := binding.Spec.MeshFedConfigSelector
-	s := strings.Split(mfcSelector, "=")
-	var mfcList mmv1.MeshFedConfigList
-	var mfc mmv1.MeshFedConfig
-
-	if mfcSelector == "" {
-		log.Infof("No configs selector for SB '%v'. using default Selector.", binding.Name)
-		// TODO: use Default config
-	} else {
-		if len(s) == 2 {
-			if err := r.List(ctx, &mfcList, client.MatchingLabels{s[0]: s[1]}); err != nil {
-				log.Warnf("Unable to fetch SB. Error: %v", err)
-				return ctrl.Result{}, err
-			}
-			if len(mfcList.Items) == 1 {
-				mfc = mfcList.Items[0]
-				log.Infof("Processing SB '%v' and found MeshFedConfig: '%v' ", binding.Name, mfc.Name)
-			} else {
-				log.Warnf("Mulitple configs selected for SB '%v'. selector: %v", binding.Name, mfcSelector)
-				// TODO: return error
-			}
-		} else {
-			// TODO: return error
-			log.Warnf("Bad MeshFedConfig selector for SB '%v'", binding.Name)
-		}
-	}
+	GetMeshFedConfig(ctx, r, mfcSelector)
 
 	return ctrl.Result{}, nil
 }

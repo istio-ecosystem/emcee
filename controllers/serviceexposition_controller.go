@@ -45,7 +45,9 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
-	log.Warnf("processed SE resource: %v", exposition)
+	mfcSelector := exposition.Spec.MeshFedConfigSelector
+	GetMeshFedConfig(ctx, r, mfcSelector)
+
 	return ctrl.Result{}, nil
 }
 
