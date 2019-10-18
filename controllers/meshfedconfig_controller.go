@@ -47,6 +47,23 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
+	if fed.Spec.TlsContextSelector != "" {
+		// use the infor in secret
+	}
+	if fed.Spec.UseEgressGateway {
+		egressGatewayPort := fed.Spec.EgressGatewayPort
+		if egressGatewayPort == 0 {
+			egressGatewayPort = DefaultGatewayPort
+		}
+		if fed.Spec.EgressGatewaySelector != "" {
+			// use an existing fateway
+			// TODO
+		} else {
+			// create an egress gateway
+			// TODO
+		}
+	}
+
 	log.Warnf("processed MFC resource: %v", fed)
 	return ctrl.Result{}, nil
 }
