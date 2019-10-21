@@ -24,6 +24,9 @@ import (
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 	istioapi "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schemas"
 )
 
 // ServiceExpositionReconciler reconciles a ServiceExposition object
@@ -66,7 +69,7 @@ func (r *ServiceExpositionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *ServiceExpositionReconciler) CreateIstioGateway(ctx context.Context) {
 
-	gateway := &istioapi.Gateway{
+	gateway := istioapi.Gateway{
 		Servers:  []*istioapi.Server{},
 		Selector: map[string]string{},
 		// ObjectMeta: metav1.ObjectMeta{
@@ -83,7 +86,19 @@ func (r *ServiceExpositionReconciler) CreateIstioGateway(ctx context.Context) {
 		// },
 	}
 
-	if err := r.Create(ctx, gateway); err != nil {
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type: schemas.Gateway.Type,
+			Name: "name",
+		},
+		Spec: &gateway,
+	}
+	runtimeObject, err := crd.ConvertConfig(schemas.Gateway, config)
+	if err != nil {
+		log.Warnf("unable to convert: %v", err)
+	}
+
+	if err := r.Create(ctx, runtimeObject); err != nil {
 		log.Warnf("unable to fetch SE resource: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
