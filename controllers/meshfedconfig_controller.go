@@ -56,7 +56,7 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			egressGatewayPort = DefaultGatewayPort
 		}
 		if len(fed.Spec.EgressGatewaySelector) == 0 {
-			// use an existing fateway
+			// use an existing gateway
 			// TODO
 		} else {
 			// create an egress gateway

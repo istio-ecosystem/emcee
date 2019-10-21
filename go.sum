@@ -296,6 +296,7 @@ gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
 honnef.co/go/tools v0.0.0-20180728063816-88497007e858/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
+istio.io/api v0.0.0-20190515205759-982e5c3888c6 h1:lnDXeR6NYxT+Rfa5jKE1CpMfStnJ36/bYOSziS8dubU=
 istio.io/api v0.0.0-20190515205759-982e5c3888c6/go.mod h1:hhLFQmpHia8zgaM37vb2ml9iS5NfNfqZGRt1pS9aVEo=
 istio.io/pkg v0.0.0-20191014151857-998718349891 h1:zAF34q4ihQ+B8G378FCpmjSXMjzZUGzMWB/5l/MlbwI=
 istio.io/pkg v0.0.0-20191014151857-998718349891/go.mod h1:QT1C27oNOnDmw3D0qNztxETMjV08jE347wrbxm4zIvI=

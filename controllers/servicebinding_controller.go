@@ -47,8 +47,11 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	}
 
 	mfcSelector := binding.Spec.MeshFedConfigSelector
-	GetMeshFedConfig(ctx, r, mfcSelector)
-
+	mfc, err := GetMeshFedConfig(ctx, r, mfcSelector)
+	if mfc.ObjectMeta.Name == "" {
+		log.Warnf("****************: <%v-%v>", mfc, err)
+		return ctrl.Result{Requeue: true}, nil
+	}
 	return ctrl.Result{}, nil
 }
 

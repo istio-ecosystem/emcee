@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
+	istioapi "istio.io/api/networking/v1alpha3"
 )
 
 // ServiceExpositionReconciler reconciles a ServiceExposition object
@@ -36,7 +37,6 @@ type ServiceExpositionReconciler struct {
 func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	var exposition mmv1.ServiceExposition
-	// your logic here
 	if err := r.Get(ctx, req.NamespacedName, &exposition); err != nil {
 		log.Warnf("unable to fetch SE resource: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
@@ -44,9 +44,16 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		// on deleted requests.
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
-
 	mfcSelector := exposition.Spec.MeshFedConfigSelector
-	GetMeshFedConfig(ctx, r, mfcSelector)
+	mfc, err := GetMeshFedConfig(ctx, r, mfcSelector)
+	if (err == nil) && (mfc.ObjectMeta.Name == "") {
+		log.Warnf("did not find an mfc. will requeue the request.")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// create Istio Gateway
+
+	// create Istio Virtual Service
 
 	return ctrl.Result{}, nil
 }
@@ -55,4 +62,32 @@ func (r *ServiceExpositionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&mmv1.ServiceExposition{}).
 		Complete(r)
+}
+
+func (r *ServiceExpositionReconciler) CreateIstioGateway(ctx context.Context) {
+
+	gateway := &istioapi.Gateway{
+		Servers:  []*istioapi.Server{},
+		Selector: map[string]string{},
+		// ObjectMeta: metav1.ObjectMeta{
+		// 	Namespace: "namespace",
+		// 	Name:      "name",
+		// },
+		// Spec: corev1.PodSpec{
+		// 	Containers: []corev1.Container{
+		// 		corev1.Container{
+		// 			Image: "nginx",
+		// 			Name:  "nginx",
+		// 		},
+		// 	},
+		// },
+	}
+
+	if err := r.Create(ctx, gateway); err != nil {
+		log.Warnf("unable to fetch SE resource: %v", err)
+		// we'll ignore not-found errors, since they can't be fixed by an immediate
+		// requeue (we'll need to wait for a new notification), and we can get them
+		// on deleted requests.
+	}
+
 }

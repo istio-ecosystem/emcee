@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 
 	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
@@ -33,12 +34,12 @@ const (
 func GetMeshFedConfig(ctx context.Context, reconciler interface{}, mfcSelector map[string]string) (mmv1.MeshFedConfig, error) {
 	var mfcList mmv1.MeshFedConfigList
 	var mfc mmv1.MeshFedConfig
+	var err error
 
 	if len(mfcSelector) == 0 {
 		log.Infof("No configs selector. using default Selector.")
 		// TODO: use Default config
 	} else {
-		var err error
 		switch reconciler.(type) {
 		case (*ServiceBindingReconciler):
 			r, _ := reconciler.(*ServiceBindingReconciler)
@@ -49,18 +50,20 @@ func GetMeshFedConfig(ctx context.Context, reconciler interface{}, mfcSelector m
 		}
 		if err != nil {
 			log.Warnf("Unable to fetch. Error: %v", err)
-			return mfc, err // <<<<<<<<<<<<
+			return mfc, err
 		}
 
-		if len(mfcList.Items) == 1 {
+		if len(mfcList.Items) == 0 {
+			log.Infof("Did not Find MeshFedConfig: '%v' ", mfc.Name)
+		} else if len(mfcList.Items) == 1 {
 			mfc = mfcList.Items[0]
 			log.Infof("Found MeshFedConfig: '%v' ", mfc.Name)
 		} else {
-			log.Warnf("Mulitple configs for selector: %v", mfcSelector)
-			// TODO: return error
+			log.Warnf("Mulitple configs for selector: %v %v", mfcSelector, mfcList.Items)
+			return mfc, errors.New("Mulitple configs for selector")
 		}
 	}
-	return mfc, nil
+	return mfc, err
 }
 
 func GetTlsSecret(ctx context.Context, r *MeshFedConfigReconciler, tlsSelector client.MatchingLabels) (corev1.Secret, error) {
@@ -69,6 +72,7 @@ func GetTlsSecret(ctx context.Context, r *MeshFedConfigReconciler, tlsSelector c
 
 	if len(tlsSelector) == 0 {
 		log.Infof("No tls selector.")
+		return tlsSecret, nil
 	} else {
 		if err := r.List(ctx, &tlsSecretList, tlsSelector); err != nil {
 			log.Warnf("unable to fetch TLS secrets: %v", err)
