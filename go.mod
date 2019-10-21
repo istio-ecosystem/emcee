@@ -2,13 +2,15 @@ module github.ibm.com/istio-research/mc2019
 
 go 1.12
 
+replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
+
 require (
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.3.2
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	istio.io/api v0.0.0-20191015210738-bfa91e88abf1
-	istio.io/istio v0.0.0-20191021193235-3cda0cd4b6b5
+	istio.io/istio v0.0.0-20191021163937-deccffd2c961
 	istio.io/pkg v0.0.0-20191015053120-592d80277a1b
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
