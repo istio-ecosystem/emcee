@@ -27,6 +27,9 @@ import (
 	ccrd "istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schemas"
+
+	// Without this (seemingly) unneeded import, fails with 'panic: No Auth Provider found for name "oidc"' on IKS
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 // ServiceExpositionReconciler reconciles a ServiceExposition object
@@ -69,7 +72,7 @@ func (r *ServiceExpositionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *ServiceExpositionReconciler) CreateIstioGateway(ctx context.Context) {
 
-	gateway := &istioapi.Gateway{
+	gateway := istioapi.Gateway{
 		Servers:  []*istioapi.Server{},
 		Selector: map[string]string{},
 		// ObjectMeta: metav1.ObjectMeta{
