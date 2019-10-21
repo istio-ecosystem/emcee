@@ -27,7 +27,7 @@ type ServiceBindingSpec struct {
 	// REQUIRED: The group in which the service being bound
 	Name string `json:"name,omitempty"`
 	// REQUIRED: The name of the group. Can be more than one group (?)
-	MeshFedConfigSelector string `json:"mesh_fed_config_selector,omitempty"`
+	MeshFedConfigSelector map[string]string `json:"mesh_fed_config_selector,omitempty"`
 	// OPTIONAL: This is an optional field. If not specified, the service name will be
 	// used as the exposed service name.
 	Alias string `json:"alias,omitempty"`

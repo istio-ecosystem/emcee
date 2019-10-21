@@ -36,16 +36,22 @@ spec:
               format: int32
               type: integer
             egress_gateway_selector:
-              type: string
+              additionalProperties:
+                type: string
+              type: object
             ingress_gateway_port:
               format: int32
               type: integer
             ingress_gateway_selector:
-              type: string
+              additionalProperties:
+                type: string
+              type: object
             tls_context_selector:
+              additionalProperties:
+                type: string
               description: If specified, selects the group (secret) to apply this
                 configuration to
-              type: string
+              type: object
             use_egress_gateway:
               type: boolean
             use_ingress_gateway:

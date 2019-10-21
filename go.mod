@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/go-logr/logr v0.1.0
+	github.com/golang/protobuf v1.3.2
 	github.com/onsi/ginkgo v1.7.0
 	github.com/onsi/gomega v1.5.0
 	istio.io/pkg v0.0.0-20191014151857-998718349891

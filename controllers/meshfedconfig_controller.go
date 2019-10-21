@@ -47,21 +47,23 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
-	if fed.Spec.TlsContextSelector != "" {
-		// use the infor in secret
+	if len(fed.Spec.TlsContextSelector) == 0 {
+		// use the info in secret
 	}
 	if fed.Spec.UseEgressGateway {
 		egressGatewayPort := fed.Spec.EgressGatewayPort
 		if egressGatewayPort == 0 {
 			egressGatewayPort = DefaultGatewayPort
 		}
-		if fed.Spec.EgressGatewaySelector != "" {
+		if len(fed.Spec.EgressGatewaySelector) == 0 {
 			// use an existing fateway
 			// TODO
 		} else {
 			// create an egress gateway
 			// TODO
 		}
+		tlsSelector := fed.Spec.TlsContextSelector
+		GetTlsSecret(ctx, r, tlsSelector)
 	}
 
 	log.Warnf("processed MFC resource: %v", fed)

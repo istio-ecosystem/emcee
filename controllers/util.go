@@ -17,7 +17,6 @@ package controllers
 
 import (
 	"context"
-	"strings"
 
 	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
@@ -31,62 +30,50 @@ const (
 	DefaultGatewayPort = 15443
 )
 
-func GetMeshFedConfig(ctx context.Context, reconciler interface{}, mfcSelector string) (mmv1.MeshFedConfig, error) {
-	// r, _ := reconciler.(*ServiceBindingReconciler)
-	s := strings.Split(mfcSelector, "=")
+func GetMeshFedConfig(ctx context.Context, reconciler interface{}, mfcSelector map[string]string) (mmv1.MeshFedConfig, error) {
 	var mfcList mmv1.MeshFedConfigList
 	var mfc mmv1.MeshFedConfig
-	if mfcSelector == "" {
+
+	if len(mfcSelector) == 0 {
 		log.Infof("No configs selector. using default Selector.")
 		// TODO: use Default config
 	} else {
-		if len(s) == 2 {
-			var err error
-			switch reconciler.(type) {
-			case (*ServiceBindingReconciler):
-				r, _ := reconciler.(*ServiceBindingReconciler)
-				err = r.List(ctx, &mfcList, client.MatchingLabels{s[0]: s[1]})
-			case (*ServiceExpositionReconciler):
-				r, _ := reconciler.(*ServiceExpositionReconciler)
-				err = r.List(ctx, &mfcList, client.MatchingLabels{s[0]: s[1]})
-			}
-			if err != nil {
-				log.Warnf("Unable to fetch. Error: %v", err)
-				return mfc, err // <<<<<<<<<<<<
-			}
+		var err error
+		switch reconciler.(type) {
+		case (*ServiceBindingReconciler):
+			r, _ := reconciler.(*ServiceBindingReconciler)
+			err = r.List(ctx, &mfcList, client.MatchingLabels(mfcSelector))
+		case (*ServiceExpositionReconciler):
+			r, _ := reconciler.(*ServiceExpositionReconciler)
+			err = r.List(ctx, &mfcList, client.MatchingLabels(mfcSelector))
+		}
+		if err != nil {
+			log.Warnf("Unable to fetch. Error: %v", err)
+			return mfc, err // <<<<<<<<<<<<
+		}
 
-			if len(mfcList.Items) == 1 {
-				mfc = mfcList.Items[0]
-				log.Infof("Found MeshFedConfig: '%v' ", mfc.Name)
-			} else {
-				log.Warnf("Mulitple configs for selector: %v", mfcSelector)
-				// TODO: return error
-			}
+		if len(mfcList.Items) == 1 {
+			mfc = mfcList.Items[0]
+			log.Infof("Found MeshFedConfig: '%v' ", mfc.Name)
 		} else {
-			log.Warnf("Bad MeshFedConfig selector")
+			log.Warnf("Mulitple configs for selector: %v", mfcSelector)
 			// TODO: return error
 		}
 	}
 	return mfc, nil
 }
 
-func GetTlsSecret(ctx context.Context, r *MeshFedConfigReconciler, tlsSelector string) (corev1.Secret, error) {
-	s := strings.Split(tlsSelector, "=")
+func GetTlsSecret(ctx context.Context, r *MeshFedConfigReconciler, tlsSelector client.MatchingLabels) (corev1.Secret, error) {
 	var tlsSecretList corev1.SecretList
 	var tlsSecret corev1.Secret
-	if tlsSelector == "" {
+
+	if len(tlsSelector) == 0 {
 		log.Infof("No tls selector.")
 	} else {
-		if len(s) == 2 {
-			if err := r.List(ctx, &tlsSecretList, client.MatchingLabels{s[0]: s[1]}); err != nil {
-				log.Warnf("unable to fetch TLS secrets: %v", err)
-				return tlsSecret, ignoreNotFound(err)
-			}
-		} else {
-			log.Warnf("Bad tls selector")
-			// TODO: return error
+		if err := r.List(ctx, &tlsSecretList, tlsSelector); err != nil {
+			log.Warnf("unable to fetch TLS secrets: %v", err)
+			return tlsSecret, ignoreNotFound(err)
 		}
-
 	}
-	return tlsSecret, nil
+	return tlsSecretList.Items[0], nil
 }

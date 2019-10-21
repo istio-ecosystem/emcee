@@ -46,9 +46,11 @@ spec:
                 type: string
               type: array
             mesh_fed_config_selector:
+              additionalProperties:
+                type: string
               description: 'REQUIRED: The group in which the service being exposed.
                 Can be more than one group (?)'
-              type: string
+              type: object
             name:
               description: 'REQUIRED: The name of the service to be exposed.'
               type: string

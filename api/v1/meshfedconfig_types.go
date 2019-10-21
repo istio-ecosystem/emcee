@@ -25,16 +25,16 @@ import (
 // MeshFedConfigSpec defines the desired state of MeshFedConfig
 type MeshFedConfigSpec struct {
 	// If specified, selects the group (secret) to apply this configuration to
-	TlsContextSelector     string   `json:"tls_context_selector,omitempty"`
-	UseEgressGateway       bool     `json:"use_egress_gateway,omitempty"`
-	EgressGatewaySelector  string   `json:"egress_gateway_selector,omitempty"`
-	EgressGatewayPort      int32    `json:"egress_gateway_port,omitempty"`
-	UseIngressGateway      bool     `json:"use_ingress_gateway,omitempty"`
-	IngressGatewaySelector string   `json:"ingress_gateway_selector,omitempty"`
-	IngressGatewayPort     int32    `json:"ingress_gateway_port,omitempty"`
-	XXX_NoUnkeyedLiteral   struct{} `json:"-"`
-	XXX_unrecognized       []byte   `json:"-"`
-	XXX_sizecache          int32    `json:"-"`
+	TlsContextSelector     map[string]string `json:"tls_context_selector,omitempty"`
+	UseEgressGateway       bool              `json:"use_egress_gateway,omitempty"`
+	EgressGatewaySelector  map[string]string `json:"egress_gateway_selector,omitempty"`
+	EgressGatewayPort      int32             `json:"egress_gateway_port,omitempty"`
+	UseIngressGateway      bool              `json:"use_ingress_gateway,omitempty"`
+	IngressGatewaySelector map[string]string `json:"ingress_gateway_selector,omitempty"`
+	IngressGatewayPort     int32             `json:"ingress_gateway_port,omitempty"`
+	XXX_NoUnkeyedLiteral   struct{}          `json:"-"`
+	XXX_unrecognized       []byte            `json:"-"`
+	XXX_sizecache          int32             `json:"-"`
 }
 
 // MeshFedConfigStatus defines the observed state of MeshFedConfig
