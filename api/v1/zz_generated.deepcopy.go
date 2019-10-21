@@ -54,7 +54,7 @@ func (in *MeshFedConfig) DeepCopyObject() runtime.Object {
 func (in *MeshFedConfigList) DeepCopyInto(out *MeshFedConfigList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]MeshFedConfig, len(*in))
@@ -170,7 +170,7 @@ func (in *ServiceBinding) DeepCopyObject() runtime.Object {
 func (in *ServiceBindingList) DeepCopyInto(out *ServiceBindingList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]ServiceBinding, len(*in))
@@ -277,7 +277,7 @@ func (in *ServiceExposition) DeepCopyObject() runtime.Object {
 func (in *ServiceExpositionList) DeepCopyInto(out *ServiceExpositionList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]ServiceExposition, len(*in))
