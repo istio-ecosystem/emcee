@@ -6,6 +6,7 @@ replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 require (
 	github.com/apache/thrift v0.12.0 // indirect
+	github.com/aspenmesh/istio-client-go v0.0.0-20191010215625-4de6e89009c4
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.3.2
 	github.com/onsi/ginkgo v1.8.0
@@ -64,4 +65,3 @@ replace k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.0.0-20190620085408
 replace k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.0.0-20190620085325-f29e2b4a4f84
 
 replace k8s.io/kubectl => k8s.io/kubectl v0.0.0-20190602132728-7075c07e78bf
-

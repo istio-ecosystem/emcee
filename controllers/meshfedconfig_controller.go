@@ -23,12 +23,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MeshFedConfigReconciler reconciles a MeshFedConfig object
 type MeshFedConfigReconciler struct {
 	client.Client
+	versionedclient.Interface
 }
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=meshfedconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -65,6 +68,16 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		tlsSelector := fed.Spec.TlsContextSelector
 		GetTlsSecret(ctx, r, tlsSelector)
 	}
+
+	// Just example of using istio client begin:
+	// 1
+	log.Warnf("++++++++++++++++++++++")
+	vsList, err := r.NetworkingV1alpha3().VirtualServices("default").List(metav1.ListOptions{})
+	log.Warnf("++++++++++++++++++++ %v ---- %v", vsList, err)
+	// 2
+	CreateIstioGW(r)
+	log.Warnf("++++++++++++++++++++++")
+	// Just example of using istio client end.
 
 	log.Warnf("processed MFC resource: %v", fed)
 	return ctrl.Result{}, nil

@@ -18,15 +18,12 @@ package controllers
 import (
 	"context"
 
+	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
-	istioapi "istio.io/api/networking/v1alpha3"
-	ccrd "istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schemas"
 
 	// Without this (seemingly) unneeded import, fails with 'panic: No Auth Provider found for name "oidc"' on IKS
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
@@ -35,6 +32,7 @@ import (
 // ServiceExpositionReconciler reconciles a ServiceExposition object
 type ServiceExpositionReconciler struct {
 	client.Client
+	versionedclient.Interface
 }
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=serviceexpositions,verbs=get;list;watch;create;update;patch;delete
@@ -68,44 +66,4 @@ func (r *ServiceExpositionReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&mmv1.ServiceExposition{}).
 		Complete(r)
-}
-
-func (r *ServiceExpositionReconciler) CreateIstioGateway(ctx context.Context) {
-
-	gateway := istioapi.Gateway{
-		Servers:  []*istioapi.Server{},
-		Selector: map[string]string{},
-		// ObjectMeta: metav1.ObjectMeta{
-		// 	Namespace: "namespace",
-		// 	Name:      "name",
-		// },
-		// Spec: corev1.PodSpec{
-		// 	Containers: []corev1.Container{
-		// 		corev1.Container{
-		// 			Image: "nginx",
-		// 			Name:  "nginx",
-		// 		},
-		// 	},
-		// },
-	}
-
-	config := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type: schemas.Gateway.Type,
-			Name: "name",
-		},
-		Spec: &gateway,
-	}
-	runtimeObject, err := ccrd.ConvertConfig(schemas.Gateway, config)
-	if err != nil {
-		log.Warnf("unable to convert: %v", err)
-	}
-
-	if err := r.Create(ctx, runtimeObject); err != nil {
-		log.Warnf("unable to fetch SE resource: %v", err)
-		// we'll ignore not-found errors, since they can't be fixed by an immediate
-		// requeue (we'll need to wait for a new notification), and we can get them
-		// on deleted requests.
-	}
-
 }

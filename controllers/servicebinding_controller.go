@@ -22,12 +22,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 )
 
 // ServiceBindingReconciler reconciles a ServiceBinding object
 type ServiceBindingReconciler struct {
 	client.Client
+	versionedclient.Interface
 }
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=servicebindings,verbs=get;list;watch;create;update;patch;delete
