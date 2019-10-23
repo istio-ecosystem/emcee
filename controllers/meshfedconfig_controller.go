@@ -21,9 +21,9 @@ import (
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -71,11 +71,25 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	// Just example of using istio client begin:
 	// 1
-	log.Warnf("++++++++++++++++++++++")
-	vsList, err := r.NetworkingV1alpha3().VirtualServices("default").List(metav1.ListOptions{})
-	log.Warnf("++++++++++++++++++++ %v ---- %v", vsList, err)
+	//log.Warnf("++++++++++++++++++++++")
+	//vsList, err := r.NetworkingV1alpha3().VirtualServices("default").List(metav1.ListOptions{})
+	//log.Warnf("++++++++++++++++++++ %v ---- %v", vsList, err)
 	// 2
-	CreateIstioGW(r)
+
+	gateway := istiov1alpha3.Gateway{
+		Servers: []*istiov1alpha3.Server{
+			{
+				Port: &istiov1alpha3.Port{
+					Number:   80,
+					Name:     "myport",
+					Protocol: "HTTP",
+				},
+				Hosts: []string{"abc.nbc.com"},
+			},
+		},
+	}
+	CreateIstioGateway(r, "nameisforrestgump", "istio-system", gateway)
+
 	log.Warnf("++++++++++++++++++++++")
 	// Just example of using istio client end.
 

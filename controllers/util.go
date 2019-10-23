@@ -19,8 +19,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
+
+	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
@@ -33,33 +34,32 @@ const (
 	DefaultGatewayPort = 15443
 )
 
-func CreateIstioGW(r *MeshFedConfigReconciler) {
-	namespace := "istio-system"
+func CreateIstioGateway(reconciler interface{}, name string, namespace string, gateway istiov1alpha3.Gateway) {
+	// TODO: retuen erro
 	gw := &v1alpha3.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "gateway",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "nameisforrestgump",
+			Name:      name,
 		},
 		Spec: v1alpha3.GatewaySpec{
-			Gateway: istiov1alpha3.Gateway{
-				Servers: []*istiov1alpha3.Server{
-					{
-						Port: &istiov1alpha3.Port{
-							Number:   80,
-							Name:     "myport",
-							Protocol: "HTTP",
-						},
-						Hosts: []string{"abc.nbc.com"},
-					},
-				},
-			},
+			Gateway: gateway,
 		},
 	}
-	a, rr := r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
-	log.Warnf("/////////////////// %v %v\n", a, rr)
+	switch reconciler.(type) {
+	case (*MeshFedConfigReconciler):
+		r, _ := reconciler.(*MeshFedConfigReconciler)
+		r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
+	case (*ServiceBindingReconciler):
+		r, _ := reconciler.(*ServiceBindingReconciler)
+		r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
+	case (*ServiceExpositionReconciler):
+		r, _ := reconciler.(*ServiceExpositionReconciler)
+		r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
+	}
+
 }
 
 func GetMeshFedConfig(ctx context.Context, reconciler interface{}, mfcSelector map[string]string) (mmv1.MeshFedConfig, error) {
