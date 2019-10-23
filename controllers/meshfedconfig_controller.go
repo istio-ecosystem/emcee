@@ -18,14 +18,14 @@ package controllers
 import (
 	"context"
 
-	"istio.io/pkg/log"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
+	"istio.io/pkg/log"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // MeshFedConfigReconciler reconciles a MeshFedConfig object

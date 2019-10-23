@@ -32,9 +32,6 @@ type MeshFedConfigSpec struct {
 	UseIngressGateway      bool              `json:"use_ingress_gateway,omitempty"`
 	IngressGatewaySelector map[string]string `json:"ingress_gateway_selector,omitempty"`
 	IngressGatewayPort     int32             `json:"ingress_gateway_port,omitempty"`
-	XXX_NoUnkeyedLiteral   struct{}          `json:"-"`
-	XXX_unrecognized       []byte            `json:"-"`
-	XXX_sizecache          int32             `json:"-"`
 }
 
 // MeshFedConfigStatus defines the observed state of MeshFedConfig

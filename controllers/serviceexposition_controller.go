@@ -19,11 +19,10 @@ import (
 	"context"
 
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 	"istio.io/pkg/log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 
 	// Without this (seemingly) unneeded import, fails with 'panic: No Auth Provider found for name "oidc"' on IKS
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"

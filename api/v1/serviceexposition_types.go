@@ -41,19 +41,13 @@ type ServiceExpositionSpec struct {
 	// TODO: consider adding support for multiple ports, their types and names.
 	Port uint32 `json:"port,omitempty"`
 	// To be filled in by mesh controller
-	Endpoints            []string `json:"endpoints,omitempty"`
-	Clusters             []string `json:"clusters,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Endpoints []string `json:"endpoints,omitempty"`
+	Clusters  []string `json:"clusters,omitempty"`
 }
 
 // ServiceExpositionStatus defines the observed state of ServiceExposition
 type ServiceExpositionStatus struct {
-	Ready                bool     `json:"ready,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Ready bool `json:"ready,omitempty"`
 }
 
 // +kubebuilder:object:root=true

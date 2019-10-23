@@ -43,10 +43,7 @@ type ServiceBindingSpec struct {
 	//
 	Namespace string `json:"namespace,omitempty"`
 	// To be filled in by cluster for exposing; already filled in for binding
-	Endpoints            []string `json:"endpoints,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Endpoints []string `json:"endpoints,omitempty"`
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
