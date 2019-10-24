@@ -22,6 +22,7 @@ import (
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
+	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +35,7 @@ const (
 	DefaultGatewayPort = 15443
 )
 
-func CreateIstioGateway(reconciler interface{}, name string, namespace string, gateway istiov1alpha3.Gateway) {
+func CreateIstioGateway(r versionedclient.Interface, name string, namespace string, gateway istiov1alpha3.Gateway) {
 	// TODO: retuen erro
 	gw := &v1alpha3.Gateway{
 		TypeMeta: metav1.TypeMeta{
@@ -48,21 +49,11 @@ func CreateIstioGateway(reconciler interface{}, name string, namespace string, g
 			Gateway: gateway,
 		},
 	}
-	switch reconciler.(type) {
-	case (*MeshFedConfigReconciler):
-		r, _ := reconciler.(*MeshFedConfigReconciler)
-		r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
-	case (*ServiceBindingReconciler):
-		r, _ := reconciler.(*ServiceBindingReconciler)
-		r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
-	case (*ServiceExpositionReconciler):
-		r, _ := reconciler.(*ServiceExpositionReconciler)
-		r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
-	}
 
+	r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
 }
 
-func GetMeshFedConfig(ctx context.Context, reconciler interface{}, mfcSelector map[string]string) (mmv1.MeshFedConfig, error) {
+func GetMeshFedConfig(ctx context.Context, r client.Client, mfcSelector map[string]string) (mmv1.MeshFedConfig, error) {
 	var mfcList mmv1.MeshFedConfigList
 	var mfc mmv1.MeshFedConfig
 	var err error
@@ -71,14 +62,8 @@ func GetMeshFedConfig(ctx context.Context, reconciler interface{}, mfcSelector m
 		log.Infof("No configs selector. using default Selector.")
 		// TODO: use Default config
 	} else {
-		switch reconciler.(type) {
-		case (*ServiceBindingReconciler):
-			r, _ := reconciler.(*ServiceBindingReconciler)
-			err = r.List(ctx, &mfcList, client.MatchingLabels(mfcSelector))
-		case (*ServiceExpositionReconciler):
-			r, _ := reconciler.(*ServiceExpositionReconciler)
-			err = r.List(ctx, &mfcList, client.MatchingLabels(mfcSelector))
-		}
+		err = r.List(ctx, &mfcList, client.MatchingLabels(mfcSelector))
+
 		if err != nil {
 			log.Warnf("Unable to fetch. Error: %v", err)
 			return mfc, err

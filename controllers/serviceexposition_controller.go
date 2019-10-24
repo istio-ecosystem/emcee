@@ -49,7 +49,7 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 	mfcSelector := exposition.Spec.MeshFedConfigSelector
-	mfc, err := GetMeshFedConfig(ctx, r, mfcSelector)
+	mfc, err := GetMeshFedConfig(ctx, r.Client, mfcSelector)
 	if (err == nil) && (mfc.ObjectMeta.Name == "") {
 		log.Warnf("did not find an mfc. will requeue the request.")
 		return ctrl.Result{Requeue: true}, nil

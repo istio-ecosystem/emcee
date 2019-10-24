@@ -88,7 +88,7 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			},
 		},
 	}
-	CreateIstioGateway(r, "nameisforrestgump", "istio-system", gateway)
+	CreateIstioGateway(r.Interface, "nameisforrestgump", "istio-system", gateway)
 
 	log.Warnf("++++++++++++++++++++++")
 	// Just example of using istio client end.
