@@ -48,12 +48,30 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
+	// TODO: follow https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/cronjob-tutorial/testdata/finalizer_example.go
+	// to add a finalizer.
+
 	mfcSelector := binding.Spec.MeshFedConfigSelector
 	mfc, err := GetMeshFedConfig(ctx, r, mfcSelector)
 	if mfc.ObjectMeta.Name == "" {
 		log.Warnf("****************: <%v-%v>", mfc, err)
 		return ctrl.Result{Requeue: true}, nil
 	}
+
+	styleReconciler, err := GetBindingReconciler(&mfc, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !binding.ObjectMeta.DeletionTimestamp.IsZero() {
+		err = styleReconciler.RemoveServiceBinding(ctx, &binding)
+	} else {
+		err = styleReconciler.EffectServiceBinding(ctx, &binding)
+	}
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }
 

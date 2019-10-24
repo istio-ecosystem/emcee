@@ -21,7 +21,6 @@ import (
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
-	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,6 +49,9 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
+	// TODO: follow https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/cronjob-tutorial/testdata/finalizer_example.go
+	// to add a finalizer.
+
 	if len(fed.Spec.TlsContextSelector) == 0 {
 		// use the info in secret
 	}
@@ -69,29 +71,35 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		GetTlsSecret(ctx, r, tlsSelector)
 	}
 
-	// Just example of using istio client begin:
+	// Just example of using Istio client begin:
 	// 1
 	//log.Warnf("++++++++++++++++++++++")
 	//vsList, err := r.NetworkingV1alpha3().VirtualServices("default").List(metav1.ListOptions{})
 	//log.Warnf("++++++++++++++++++++ %v ---- %v", vsList, err)
 	// 2
 
-	gateway := istiov1alpha3.Gateway{
-		Servers: []*istiov1alpha3.Server{
-			{
-				Port: &istiov1alpha3.Port{
-					Number:   80,
-					Name:     "myport",
-					Protocol: "HTTP",
+	/*
+		gateway := istiov1alpha3.Gateway{
+			Servers: []*istiov1alpha3.Server{
+				{
+					Port: &istiov1alpha3.Port{
+						Number:   80,
+						Name:     "myport",
+						Protocol: "HTTP",
+					},
+					Hosts: []string{"abc.nbc.com"},
 				},
-				Hosts: []string{"abc.nbc.com"},
 			},
-		},
-	}
-	CreateIstioGateway(r, "nameisforrestgump", "istio-system", gateway)
+		}
+		CreateIstioGateway(r, "nameisforrestgump", "istio-system", gateway)
 
-	log.Warnf("++++++++++++++++++++++")
-	// Just example of using istio client end.
+		log.Warnf("++++++++++++++++++++++")
+		// Just example of using istio client end.
+	*/
+
+	// If the MeshFedConfig changes we may need to re-create all of the Istio
+	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
+	// re-reconcile of every ServiceBinding and ServiceExposition.
 
 	log.Warnf("processed MFC resource: %v", fed)
 	return ctrl.Result{}, nil
