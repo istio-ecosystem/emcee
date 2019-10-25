@@ -18,8 +18,11 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
+	"github.ibm.com/istio-research/mc2019/style"
+	"github.ibm.com/istio-research/mc2019/style/boundary_protection"
 
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
@@ -96,4 +99,22 @@ func GetTlsSecret(ctx context.Context, r *MeshFedConfigReconciler, tlsSelector c
 		}
 	}
 	return tlsSecretList.Items[0], nil
+}
+
+// GetBindingReconciler creates a ServiceBinding implementation specific to the MeshFedStyle
+func GetBindingReconciler(mfc *mmv1.MeshFedConfig, cli client.Client) (style.ServiceBinder, error) {
+	// TODO: Detect if mfc refers to a Vadim-style reconciler
+	if true {
+		return boundary_protection.NewBoundaryProtectionServiceBinder(cli), nil
+	}
+	return nil, fmt.Errorf("No handler for %v style", mfc)
+}
+
+// GetExposureReconciler creates a ServiceExposure implementation specific to the MeshFedStyle
+func GetExposureReconciler(mfc *mmv1.MeshFedConfig, cli client.Client) (style.ServiceExposer, error) {
+	// TODO: Detect if mfc refers to a Vadim-style reconciler
+	if true {
+		return boundary_protection.NewBoundaryProtectionServiceExposer(cli), nil
+	}
+	return nil, fmt.Errorf("No handler for %v style", mfc)
 }

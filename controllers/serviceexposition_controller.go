@@ -48,6 +48,10 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		// on deleted requests.
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
+
+	// TODO: follow https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/cronjob-tutorial/testdata/finalizer_example.go
+	// to add a finalizer.
+
 	mfcSelector := exposition.Spec.MeshFedConfigSelector
 	mfc, err := GetMeshFedConfig(ctx, r.Client, mfcSelector)
 	if (err == nil) && (mfc.ObjectMeta.Name == "") {
@@ -58,6 +62,20 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 	// create Istio Gateway
 
 	// create Istio Virtual Service
+
+	styleReconciler, err := GetExposureReconciler(&mfc, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !exposition.ObjectMeta.DeletionTimestamp.IsZero() {
+		err = styleReconciler.RemoveServiceExposure(ctx, &exposition)
+	} else {
+		err = styleReconciler.EffectServiceExposure(ctx, &exposition)
+	}
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }

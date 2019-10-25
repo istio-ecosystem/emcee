@@ -5,7 +5,6 @@ go 1.12
 replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 require (
-	github.com/apache/thrift v0.12.0 // indirect
 	github.com/aspenmesh/istio-client-go v0.0.0-20191010215625-4de6e89009c4
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.3.2
