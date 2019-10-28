@@ -79,20 +79,21 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	// 2
 
 	/*
-		gateway := istiov1alpha3.Gateway{
-			Servers: []*istiov1alpha3.Server{
-				{
-					Port: &istiov1alpha3.Port{
-						Number:   80,
-						Name:     "myport",
-						Protocol: "HTTP",
+			gateway := istiov1alpha3.Gateway{
+				Servers: []*istiov1alpha3.Server{
+					{
+						Port: &istiov1alpha3.Port{
+							Number:   80,
+							Name:     "myport",
+							Protocol: "HTTP",
+						},
+						Hosts: []string{"abc.nbc.com"},
 					},
-					Hosts: []string{"abc.nbc.com"},
 				},
 			},
-		},
-	}
-	CreateIstioGateway(r.Interface, "nameisforrestgump", "istio-system", gateway)
+		}
+		CreateIstioGateway(r.Interface, "nameisforrestgump", "istio-system", gateway)
+	*/
 
 	// If the MeshFedConfig changes we may need to re-create all of the Istio
 	// things for every ServiceBinding and ServiceExposition.  TODO Trigger

@@ -69,7 +69,7 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		err = styleReconciler.EffectServiceBinding(ctx, &binding)
 	}
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil //err
 	}
 
 	return ctrl.Result{}, nil

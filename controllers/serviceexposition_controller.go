@@ -74,9 +74,8 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		err = styleReconciler.EffectServiceExposure(ctx, &exposition)
 	}
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil //err
 	}
-
 	return ctrl.Result{}, nil
 }
 
