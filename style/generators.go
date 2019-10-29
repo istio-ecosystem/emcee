@@ -12,6 +12,12 @@ import (
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 )
 
+// MeshFedConfig creates/destroys the underlying mesh objects that implement a mmv1.MeshFedConfig
+type MeshFedConfig interface {
+	EffectMeshFedConfig(ctx context.Context, sb *mmv1.MeshFedConfig) error
+	RemoveMeshFedConfig(ctx context.Context, sb *mmv1.MeshFedConfig) error
+}
+
 // ServiceBinder creates/destroys the underlying mesh objects that implement a mmv1.ServiceBinding
 type ServiceBinder interface {
 	EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding) error

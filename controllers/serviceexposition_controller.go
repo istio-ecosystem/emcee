@@ -20,7 +20,7 @@ import (
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 
-	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,7 +32,7 @@ import (
 // ServiceExpositionReconciler reconciles a ServiceExposition object
 type ServiceExpositionReconciler struct {
 	client.Client
-	versionedclient.Interface
+	istioclient.Interface
 }
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=serviceexpositions,verbs=get;list;watch;create;update;patch;delete
@@ -40,7 +40,9 @@ type ServiceExpositionReconciler struct {
 
 func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
+	myFinalizerName := "mm.ibm.istio.io"
 	var exposition mmv1.ServiceExposition
+
 	if err := r.Get(ctx, req.NamespacedName, &exposition); err != nil {
 		log.Warnf("unable to fetch SE resource: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
@@ -48,9 +50,6 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		// on deleted requests.
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
-
-	// TODO: follow https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/cronjob-tutorial/testdata/finalizer_example.go
-	// to add a finalizer.
 
 	mfcSelector := exposition.Spec.MeshFedConfigSelector
 	mfc, err := GetMeshFedConfig(ctx, r.Client, mfcSelector)
@@ -63,20 +62,42 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 
 	// create Istio Virtual Service
 
-	styleReconciler, err := GetExposureReconciler(&mfc, r.Client)
+	styleReconciler, err := GetExposureReconciler(&mfc, r.Client, r.Interface)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if !exposition.ObjectMeta.DeletionTimestamp.IsZero() {
-		err = styleReconciler.RemoveServiceExposure(ctx, &exposition)
+	if exposition.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !containsString(exposition.ObjectMeta.Finalizers, myFinalizerName) {
+			exposition.ObjectMeta.Finalizers = append(exposition.ObjectMeta.Finalizers, myFinalizerName)
+			if err := r.Update(context.Background(), &exposition); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	} else {
-		err = styleReconciler.EffectServiceExposure(ctx, &exposition)
+		// The object is being deleted
+		if containsString(exposition.ObjectMeta.Finalizers, myFinalizerName) {
+			// our finalizer is present, so lets handle any external dependency
+			if err := styleReconciler.RemoveServiceExposure(ctx, &exposition); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			exposition.ObjectMeta.Finalizers = removeString(exposition.ObjectMeta.Finalizers, myFinalizerName)
+			if err := r.Update(context.Background(), &exposition); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, err
 	}
-	if err != nil {
-		return ctrl.Result{}, nil //err
-	}
-	return ctrl.Result{}, nil
+
+	err = styleReconciler.EffectServiceExposure(ctx, &exposition)
+	return ctrl.Result{}, err
 }
 
 func (r *ServiceExpositionReconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -25,7 +25,7 @@ import (
 	"github.ibm.com/istio-research/mc2019/style/boundary_protection"
 
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
-	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
@@ -38,7 +38,7 @@ const (
 	DefaultGatewayPort = 15443
 )
 
-func CreateIstioGateway(r versionedclient.Interface, name string, namespace string, gateway istiov1alpha3.Gateway) {
+func CreateIstioGateway(r istioclient.Interface, name string, namespace string, gateway istiov1alpha3.Gateway) {
 	// TODO: retuen erro
 	gw := &v1alpha3.Gateway{
 		TypeMeta: metav1.TypeMeta{
@@ -101,20 +101,48 @@ func GetTlsSecret(ctx context.Context, r *MeshFedConfigReconciler, tlsSelector c
 	return tlsSecretList.Items[0], nil
 }
 
-// GetBindingReconciler creates a ServiceBinding implementation specific to the MeshFedStyle
-func GetBindingReconciler(mfc *mmv1.MeshFedConfig, cli client.Client) (style.ServiceBinder, error) {
+// GetMeshFedConfigReconciler creates a MeshFedConfig implementation specific to the MeshFedStyle
+func GetMeshFedConfigReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.MeshFedConfig, error) {
 	// TODO: Detect if mfc refers to a Vadim-style reconciler
 	if true {
-		return boundary_protection.NewBoundaryProtectionServiceBinder(cli), nil
+		return boundary_protection.NewBoundaryProtectionMeshFedConfig(cli, istioCli), nil
+	}
+	return nil, fmt.Errorf("No handler for %v style", mfc)
+}
+
+// GetBindingReconciler creates a ServiceBinding implementation specific to the MeshFedStyle
+func GetBindingReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.ServiceBinder, error) {
+	// TODO: Detect if mfc refers to a Vadim-style reconciler
+	if true {
+		return boundary_protection.NewBoundaryProtectionServiceBinder(cli, istioCli), nil
 	}
 	return nil, fmt.Errorf("No handler for %v style", mfc)
 }
 
 // GetExposureReconciler creates a ServiceExposure implementation specific to the MeshFedStyle
-func GetExposureReconciler(mfc *mmv1.MeshFedConfig, cli client.Client) (style.ServiceExposer, error) {
+func GetExposureReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.ServiceExposer, error) {
 	// TODO: Detect if mfc refers to a Vadim-style reconciler
 	if true {
-		return boundary_protection.NewBoundaryProtectionServiceExposer(cli), nil
+		return boundary_protection.NewBoundaryProtectionServiceExposer(cli, istioCli), nil
 	}
 	return nil, fmt.Errorf("No handler for %v style", mfc)
+}
+
+func containsString(slice []string, s string) bool {
+	for _, item := range slice {
+		if item == s {
+			return true
+		}
+	}
+	return false
+}
+
+func removeString(slice []string, s string) (result []string) {
+	for _, item := range slice {
+		if item == s {
+			continue
+		}
+		result = append(result, item)
+	}
+	return
 }

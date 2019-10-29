@@ -20,7 +20,7 @@ import (
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 
-	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +29,7 @@ import (
 // ServiceBindingReconciler reconciles a ServiceBinding object
 type ServiceBindingReconciler struct {
 	client.Client
-	versionedclient.Interface
+	istioclient.Interface
 }
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=servicebindings,verbs=get;list;watch;create;update;patch;delete
@@ -37,9 +37,9 @@ type ServiceBindingReconciler struct {
 
 func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-
+	myFinalizerName := "mm.ibm.istio.io"
 	var binding mmv1.ServiceBinding
-	// your logic here
+
 	if err := r.Get(ctx, req.NamespacedName, &binding); err != nil {
 		log.Warnf("unable to fetch SB resource: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
@@ -48,9 +48,6 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
-	// TODO: follow https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/cronjob-tutorial/testdata/finalizer_example.go
-	// to add a finalizer.
-
 	mfcSelector := binding.Spec.MeshFedConfigSelector
 	mfc, err := GetMeshFedConfig(ctx, r, mfcSelector)
 	if mfc.ObjectMeta.Name == "" {
@@ -58,20 +55,41 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	styleReconciler, err := GetBindingReconciler(&mfc, r.Client)
+	styleReconciler, err := GetBindingReconciler(&mfc, r.Client, r.Interface)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if !binding.ObjectMeta.DeletionTimestamp.IsZero() {
-		err = styleReconciler.RemoveServiceBinding(ctx, &binding)
+	if binding.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !containsString(binding.ObjectMeta.Finalizers, myFinalizerName) {
+			binding.ObjectMeta.Finalizers = append(binding.ObjectMeta.Finalizers, myFinalizerName)
+			if err := r.Update(context.Background(), &binding); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	} else {
-		err = styleReconciler.EffectServiceBinding(ctx, &binding)
-	}
-	if err != nil {
-		return ctrl.Result{}, nil //err
+		// The object is being deleted
+		if containsString(binding.ObjectMeta.Finalizers, myFinalizerName) {
+			// our finalizer is present, so lets handle any external dependency
+			if err := styleReconciler.RemoveServiceBinding(ctx, &binding); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			binding.ObjectMeta.Finalizers = removeString(binding.ObjectMeta.Finalizers, myFinalizerName)
+			if err := r.Update(context.Background(), &binding); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, err
 	}
 
+	err = styleReconciler.EffectServiceBinding(ctx, &binding)
 	return ctrl.Result{}, nil
 }
 

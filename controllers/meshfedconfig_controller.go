@@ -20,7 +20,7 @@ import (
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 
-	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,7 +30,7 @@ import (
 // MeshFedConfigReconciler reconciles a MeshFedConfig object
 type MeshFedConfigReconciler struct {
 	client.Client
-	versionedclient.Interface
+	istioclient.Interface
 }
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=meshfedconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -38,10 +38,10 @@ type MeshFedConfigReconciler struct {
 
 func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
+	myFinalizerName := "mm.ibm.istio.io"
+	var mfc mmv1.MeshFedConfig
 
-	// your logic here
-	var fed mmv1.MeshFedConfig
-	if err := r.Get(ctx, req.NamespacedName, &fed); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, &mfc); err != nil {
 		log.Warnf("unable to fetch MFC resource: %v", err)
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
@@ -49,57 +49,41 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
-	// TODO: follow https://github.com/kubernetes-sigs/kubebuilder/blob/master/docs/book/src/cronjob-tutorial/testdata/finalizer_example.go
-	// to add a finalizer.
-
-	if len(fed.Spec.TlsContextSelector) == 0 {
-		// use the info in secret
-	}
-	if fed.Spec.UseEgressGateway {
-		egressGatewayPort := fed.Spec.EgressGatewayPort
-		if egressGatewayPort == 0 {
-			egressGatewayPort = DefaultGatewayPort
-		}
-		if len(fed.Spec.EgressGatewaySelector) == 0 {
-			// use an existing gateway
-			// TODO
-		} else {
-			// create an egress gateway
-			// TODO
-		}
-		tlsSelector := fed.Spec.TlsContextSelector
-		GetTlsSecret(ctx, r, tlsSelector)
+	styleReconciler, err := GetMeshFedConfigReconciler(&mfc, r.Client, r.Interface)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	// Just example of using Istio client begin:
-	// 1
-	//log.Warnf("++++++++++++++++++++++")
-	//vsList, err := r.NetworkingV1alpha3().VirtualServices("default").List(metav1.ListOptions{})
-	//log.Warnf("++++++++++++++++++++ %v ---- %v", vsList, err)
-	// 2
-
-	/*
-			gateway := istiov1alpha3.Gateway{
-				Servers: []*istiov1alpha3.Server{
-					{
-						Port: &istiov1alpha3.Port{
-							Number:   80,
-							Name:     "myport",
-							Protocol: "HTTP",
-						},
-						Hosts: []string{"abc.nbc.com"},
-					},
-				},
-			},
+	if mfc.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then lets add the finalizer and update the object. This is equivalent
+		// registering our finalizer.
+		if !containsString(mfc.ObjectMeta.Finalizers, myFinalizerName) {
+			mfc.ObjectMeta.Finalizers = append(mfc.ObjectMeta.Finalizers, myFinalizerName)
+			if err := r.Update(context.Background(), &mfc); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
-		CreateIstioGateway(r.Interface, "nameisforrestgump", "istio-system", gateway)
-	*/
+	} else {
+		// The object is being deleted
+		if containsString(mfc.ObjectMeta.Finalizers, myFinalizerName) {
+			// our finalizer is present, so lets handle any external dependency
+			if err := styleReconciler.RemoveMeshFedConfig(ctx, &mfc); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried
+				return ctrl.Result{}, err
+			}
+			// remove our finalizer from the list and update it.
+			mfc.ObjectMeta.Finalizers = removeString(mfc.ObjectMeta.Finalizers, myFinalizerName)
+			if err := r.Update(context.Background(), &mfc); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, err
+	}
 
-	// If the MeshFedConfig changes we may need to re-create all of the Istio
-	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
-	// re-reconcile of every ServiceBinding and ServiceExposition.
-
-	log.Warnf("processed MFC resource: %v", fed)
+	err = styleReconciler.EffectMeshFedConfig(ctx, &mfc)
+	log.Warnf("processed MFC resource: %v", mfc)
 	return ctrl.Result{}, nil
 }
 
@@ -114,4 +98,11 @@ func ignoreNotFound(err error) error {
 		return nil
 	}
 	return err
+}
+
+func errorNotFound(err error) bool {
+	if apierrs.IsNotFound(err) {
+		return true
+	}
+	return false
 }
