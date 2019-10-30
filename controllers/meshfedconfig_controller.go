@@ -43,9 +43,6 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	if err := r.Get(ctx, req.NamespacedName, &mfc); err != nil {
 		log.Warnf("unable to fetch MFC resource: %v", err)
-		// we'll ignore not-found errors, since they can't be fixed by an immediate
-		// requeue (we'll need to wait for a new notification), and we can get them
-		// on deleted requests.
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
@@ -55,25 +52,21 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	}
 
 	if mfc.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
 		if !containsString(mfc.ObjectMeta.Finalizers, myFinalizerName) {
 			mfc.ObjectMeta.Finalizers = append(mfc.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(context.Background(), &mfc); err != nil {
 				return ctrl.Result{}, err
 			}
+		} else {
+			err = styleReconciler.EffectMeshFedConfig(ctx, &mfc)
+			return ctrl.Result{}, nil
 		}
 	} else {
 		// The object is being deleted
 		if containsString(mfc.ObjectMeta.Finalizers, myFinalizerName) {
-			// our finalizer is present, so lets handle any external dependency
 			if err := styleReconciler.RemoveMeshFedConfig(ctx, &mfc); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
 				return ctrl.Result{}, err
 			}
-			// remove our finalizer from the list and update it.
 			mfc.ObjectMeta.Finalizers = removeString(mfc.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(context.Background(), &mfc); err != nil {
 				return ctrl.Result{}, err
@@ -81,9 +74,6 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 		return ctrl.Result{}, err
 	}
-
-	err = styleReconciler.EffectMeshFedConfig(ctx, &mfc)
-	log.Warnf("processed MFC resource: %v", mfc)
 	return ctrl.Result{}, nil
 }
 

@@ -17,19 +17,14 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 	"github.ibm.com/istio-research/mc2019/style"
 	"github.ibm.com/istio-research/mc2019/style/boundary_protection"
 
-	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
-	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -37,24 +32,6 @@ const (
 	// DefaultGatewayPort is the port to use if port is not explicitly specified
 	DefaultGatewayPort = 15443
 )
-
-func CreateIstioGateway(r istioclient.Interface, name string, namespace string, gateway istiov1alpha3.Gateway) {
-	// TODO: retuen erro
-	gw := &v1alpha3.Gateway{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "gateway",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Spec: v1alpha3.GatewaySpec{
-			Gateway: gateway,
-		},
-	}
-
-	r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
-}
 
 func GetMeshFedConfig(ctx context.Context, r client.Client, mfcSelector map[string]string) (mmv1.MeshFedConfig, error) {
 	var mfcList mmv1.MeshFedConfigList
@@ -73,32 +50,16 @@ func GetMeshFedConfig(ctx context.Context, r client.Client, mfcSelector map[stri
 		}
 
 		if len(mfcList.Items) == 0 {
-			log.Infof("Did not Find MeshFedConfig: '%v' ", mfc.Name)
+			return mfc, fmt.Errorf("Did not Find MeshFedConfig")
 		} else if len(mfcList.Items) == 1 {
 			mfc = mfcList.Items[0]
 			log.Infof("Found MeshFedConfig: '%v' ", mfc.Name)
 		} else {
 			log.Warnf("Mulitple configs for selector: %v %v", mfcSelector, mfcList.Items)
-			return mfc, errors.New("Mulitple configs for selector")
+			return mfc, fmt.Errorf("Mulitple configs for selector")
 		}
 	}
 	return mfc, err
-}
-
-func GetTlsSecret(ctx context.Context, r *MeshFedConfigReconciler, tlsSelector client.MatchingLabels) (corev1.Secret, error) {
-	var tlsSecretList corev1.SecretList
-	var tlsSecret corev1.Secret
-
-	if len(tlsSelector) == 0 {
-		log.Infof("No tls selector.")
-		return tlsSecret, nil
-	} else {
-		if err := r.List(ctx, &tlsSecretList, tlsSelector); err != nil {
-			log.Warnf("unable to fetch TLS secrets: %v", err)
-			return tlsSecret, ignoreNotFound(err)
-		}
-	}
-	return tlsSecretList.Items[0], nil
 }
 
 // GetMeshFedConfigReconciler creates a MeshFedConfig implementation specific to the MeshFedStyle

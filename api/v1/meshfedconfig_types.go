@@ -28,10 +28,10 @@ type MeshFedConfigSpec struct {
 	TlsContextSelector     map[string]string `json:"tls_context_selector,omitempty"`
 	UseEgressGateway       bool              `json:"use_egress_gateway,omitempty"`
 	EgressGatewaySelector  map[string]string `json:"egress_gateway_selector,omitempty"`
-	EgressGatewayPort      int32             `json:"egress_gateway_port,omitempty"`
+	EgressGatewayPort      uint32            `json:"egress_gateway_port,omitempty"`
 	UseIngressGateway      bool              `json:"use_ingress_gateway,omitempty"`
 	IngressGatewaySelector map[string]string `json:"ingress_gateway_selector,omitempty"`
-	IngressGatewayPort     int32             `json:"ingress_gateway_port,omitempty"`
+	IngressGatewayPort     uint32            `json:"ingress_gateway_port,omitempty"`
 }
 
 // MeshFedConfigStatus defines the observed state of MeshFedConfig

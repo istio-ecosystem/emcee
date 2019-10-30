@@ -53,8 +53,8 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 
 	mfcSelector := exposition.Spec.MeshFedConfigSelector
 	mfc, err := GetMeshFedConfig(ctx, r.Client, mfcSelector)
-	if (err == nil) && (mfc.ObjectMeta.Name == "") {
-		log.Warnf("did not find an mfc. will requeue the request.")
+	if (err != nil) || (mfc.ObjectMeta.Name == "") {
+		log.Warnf("SE did not find an mfc. will requeue the request: %v", err)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -68,26 +68,21 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 	}
 
 	if exposition.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
 		if !containsString(exposition.ObjectMeta.Finalizers, myFinalizerName) {
 			exposition.ObjectMeta.Finalizers = append(exposition.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(context.Background(), &exposition); err != nil {
 				return ctrl.Result{}, err
 			}
+		} else {
+			err = styleReconciler.EffectServiceExposure(ctx, &exposition)
+			return ctrl.Result{}, nil
 		}
 	} else {
 		// The object is being deleted
 		if containsString(exposition.ObjectMeta.Finalizers, myFinalizerName) {
-			// our finalizer is present, so lets handle any external dependency
 			if err := styleReconciler.RemoveServiceExposure(ctx, &exposition); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
 				return ctrl.Result{}, err
 			}
-
-			// remove our finalizer from the list and update it.
 			exposition.ObjectMeta.Finalizers = removeString(exposition.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(context.Background(), &exposition); err != nil {
 				return ctrl.Result{}, err
@@ -95,8 +90,6 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		}
 		return ctrl.Result{}, err
 	}
-
-	err = styleReconciler.EffectServiceExposure(ctx, &exposition)
 	return ctrl.Result{}, err
 }
 

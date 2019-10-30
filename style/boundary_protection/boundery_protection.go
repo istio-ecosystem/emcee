@@ -8,12 +8,15 @@ package boundary_protection
 
 import (
 	"context"
+	"fmt"
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 	"github.ibm.com/istio-research/mc2019/style"
-	"istio.io/pkg/log"
+	mfutil "github.ibm.com/istio-research/mc2019/util"
 
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -56,26 +59,49 @@ func NewBoundaryProtectionServiceBinder(cli client.Client, istioCli istioclient.
 // Implements Vadim-style
 func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	if len(mfc.Spec.TlsContextSelector) == 0 {
-		// use the info in secret
+		return fmt.Errorf("Unimplemented. tls selector is not specified. Currently this is not supported.")
+	} else {
+		tlsSelector := mfc.Spec.TlsContextSelector
+		if tls, err := mfutil.GetTlsSecret(ctx, bp.cli, tlsSelector); err != nil {
+			return err
+		} else {
+			log.Infof("Retrieved the tls info: %v", tls)
+		}
 	}
+
 	if mfc.Spec.UseEgressGateway {
 		egressGatewayPort := mfc.Spec.EgressGatewayPort
 		if egressGatewayPort == 0 {
-			egressGatewayPort = DefaultGatewayPort
+			egressGatewayPort = mfutil.DefaultGatewayPort
 		}
 		if len(mfc.Spec.EgressGatewaySelector) != 0 {
 			// use an existing gateway
 			// TODO
-			log.Infof("use an existing gateway..................")
+			return fmt.Errorf("Unimplemented. Gateway is specified. Currently this is not supported.")
 		} else {
 			// create an egress gateway
 			// TODO
-			log.Infof("create an egress gateway..................")
+			gateway := istiov1alpha3.Gateway{
+				Servers: []*istiov1alpha3.Server{
+					{
+						Port: &istiov1alpha3.Port{
+							Number:   egressGatewayPort,
+							Name:     "http-meshfed-port",
+							Protocol: "HTTP",
+						},
+						Hosts: []string{"*"},
+					},
+				},
+			}
+			if _, err := mfutil.CreateIstioGateway(bp.istioCli, "nameisforrestgump", "istio-system", gateway, mfc.ObjectMeta.UID); err != nil {
+				return err
+			}
 		}
-		tlsSelector := mfc.Spec.TlsContextSelector
-		GetTlsSecret(ctx, bp.cli, tlsSelector)
 	}
 
+	// If the MeshFedConfig changes we may need to re-create all of the Istio
+	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
+	// re-reconcile of every ServiceBinding and ServiceExposition.
 	return nil
 	// return fmt.Errorf("Unimplemented")
 }

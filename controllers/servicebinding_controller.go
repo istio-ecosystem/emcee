@@ -42,16 +42,13 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 
 	if err := r.Get(ctx, req.NamespacedName, &binding); err != nil {
 		log.Warnf("unable to fetch SB resource: %v", err)
-		// we'll ignore not-found errors, since they can't be fixed by an immediate
-		// requeue (we'll need to wait for a new notification), and we can get them
-		// on deleted requests.
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
 	mfcSelector := binding.Spec.MeshFedConfigSelector
 	mfc, err := GetMeshFedConfig(ctx, r, mfcSelector)
-	if mfc.ObjectMeta.Name == "" {
-		log.Warnf("****************: <%v-%v>", mfc, err)
+	if (err != nil) || (mfc.ObjectMeta.Name == "") {
+		log.Warnf("SB did not find an mfc. will requeue the request: %v", err)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -61,26 +58,21 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	}
 
 	if binding.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then lets add the finalizer and update the object. This is equivalent
-		// registering our finalizer.
 		if !containsString(binding.ObjectMeta.Finalizers, myFinalizerName) {
 			binding.ObjectMeta.Finalizers = append(binding.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(context.Background(), &binding); err != nil {
 				return ctrl.Result{}, err
 			}
+		} else {
+			err = styleReconciler.EffectServiceBinding(ctx, &binding)
+			return ctrl.Result{}, nil
 		}
 	} else {
 		// The object is being deleted
 		if containsString(binding.ObjectMeta.Finalizers, myFinalizerName) {
-			// our finalizer is present, so lets handle any external dependency
 			if err := styleReconciler.RemoveServiceBinding(ctx, &binding); err != nil {
-				// if fail to delete the external dependency here, return with error
-				// so that it can be retried
 				return ctrl.Result{}, err
 			}
-
-			// remove our finalizer from the list and update it.
 			binding.ObjectMeta.Finalizers = removeString(binding.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(context.Background(), &binding); err != nil {
 				return ctrl.Result{}, err
@@ -88,8 +80,6 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		}
 		return ctrl.Result{}, err
 	}
-
-	err = styleReconciler.EffectServiceBinding(ctx, &binding)
 	return ctrl.Result{}, nil
 }
 
