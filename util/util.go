@@ -76,7 +76,6 @@ func CreateIstioGateway(r istioclient.Interface, name string, namespace string, 
 	} else {
 		gw.ObjectMeta.Name = name
 	}
-
 	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
 	log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
 	return createdGateway, err

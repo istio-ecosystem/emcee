@@ -44,10 +44,7 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 	var exposition mmv1.ServiceExposition
 
 	if err := r.Get(ctx, req.NamespacedName, &exposition); err != nil {
-		log.Warnf("unable to fetch SE resource: %v", err)
-		// we'll ignore not-found errors, since they can't be fixed by an immediate
-		// requeue (we'll need to wait for a new notification), and we can get them
-		// on deleted requests.
+		log.Infof("Unable to fetch SE resource: %v Must have been deleted", err)
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
@@ -74,13 +71,14 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 				return ctrl.Result{}, err
 			}
 		} else {
-			err = styleReconciler.EffectServiceExposure(ctx, &exposition)
+			log.Warnf("++++++++++++++++++++++++ 1")
+			err = styleReconciler.EffectServiceExposure(ctx, &exposition, &mfc)
 			return ctrl.Result{}, nil
 		}
 	} else {
 		// The object is being deleted
 		if containsString(exposition.ObjectMeta.Finalizers, myFinalizerName) {
-			if err := styleReconciler.RemoveServiceExposure(ctx, &exposition); err != nil {
+			if err := styleReconciler.RemoveServiceExposure(ctx, &exposition, &mfc); err != nil {
 				return ctrl.Result{}, err
 			}
 			exposition.ObjectMeta.Finalizers = removeString(exposition.ObjectMeta.Finalizers, myFinalizerName)

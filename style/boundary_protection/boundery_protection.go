@@ -16,7 +16,6 @@ import (
 
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -58,47 +57,6 @@ func NewBoundaryProtectionServiceBinder(cli client.Client, istioCli istioclient.
 
 // Implements Vadim-style
 func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
-	if len(mfc.Spec.TlsContextSelector) == 0 {
-		return fmt.Errorf("Unimplemented. tls selector is not specified. Currently this is not supported.")
-	} else {
-		tlsSelector := mfc.Spec.TlsContextSelector
-		if tls, err := mfutil.GetTlsSecret(ctx, bp.cli, tlsSelector); err != nil {
-			return err
-		} else {
-			log.Infof("Retrieved the tls info: %v", tls)
-		}
-	}
-
-	if mfc.Spec.UseEgressGateway {
-		egressGatewayPort := mfc.Spec.EgressGatewayPort
-		if egressGatewayPort == 0 {
-			egressGatewayPort = mfutil.DefaultGatewayPort
-		}
-		if len(mfc.Spec.EgressGatewaySelector) != 0 {
-			// use an existing gateway
-			// TODO
-			return fmt.Errorf("Unimplemented. Gateway is specified. Currently this is not supported.")
-		} else {
-			// create an egress gateway
-			// TODO
-			gateway := istiov1alpha3.Gateway{
-				Servers: []*istiov1alpha3.Server{
-					{
-						Port: &istiov1alpha3.Port{
-							Number:   egressGatewayPort,
-							Name:     "http-meshfed-port",
-							Protocol: "HTTP",
-						},
-						Hosts: []string{"*"},
-					},
-				},
-			}
-			if _, err := mfutil.CreateIstioGateway(bp.istioCli, "nameisforrestgump", "istio-system", gateway, mfc.ObjectMeta.UID); err != nil {
-				return err
-			}
-		}
-	}
-
 	// If the MeshFedConfig changes we may need to re-create all of the Istio
 	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
 	// re-reconcile of every ServiceBinding and ServiceExposition.
@@ -113,25 +71,97 @@ func (bp *bounderyProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition) error {
+func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
+	// if len(mfc.Spec.TlsContextSelector) == 0 {
+	// 	return fmt.Errorf("Unimplemented. tls selector is not specified. Currently this is not supported.")
+	// } else {
+	// 	tlsSelector := mfc.Spec.TlsContextSelector
+	// 	if tls, err := mfutil.GetTlsSecret(ctx, bp.cli, tlsSelector); err != nil {
+	// 		return err
+	// 	} else {
+	// 		log.Infof("Retrieved the tls info: %v", tls)
+	// 	}
+	// }
+
+	// Create an Istio Gateway
+	if mfc.Spec.UseEgressGateway {
+		egressGatewayPort := mfc.Spec.EgressGatewayPort
+		if egressGatewayPort == 0 {
+			egressGatewayPort = mfutil.DefaultGatewayPort
+		}
+		if len(mfc.Spec.EgressGatewaySelector) != 0 {
+			gateway := istiov1alpha3.Gateway{
+				Selector: mfc.Spec.EgressGatewaySelector,
+				Servers: []*istiov1alpha3.Server{
+					{
+						Port: &istiov1alpha3.Port{
+							Number:   egressGatewayPort,
+							Name:     "https-meshfed-port",
+							Protocol: "HTTPS",
+						},
+						Hosts: []string{"*"},
+						Tls: &istiov1alpha3.Server_TLSOptions{
+							Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
+							ServerCertificate: "/etc/istio/certs/tls.crt",
+							PrivateKey:        "/etc/istio/certs/tls.key",
+							CaCertificates:    "/etc/istio/certs/example.com.crt",
+						},
+					},
+				},
+			}
+			if _, err := mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), se.GetNamespace(), gateway, se.GetUID()); err != nil {
+				return err
+			}
+		} else {
+			// use an existing gateway
+			// TODO
+			return fmt.Errorf("Unimplemented. Gateway proxy is not specified. Currently this is not supported.")
+		}
+	} else {
+		// We should never get here. Boundry implementation is with egress gateway always.
+		return fmt.Errorf("Boundry implementation requires egress gateway")
+	}
+
+	// Create an Istio Virtual Service
+	// vs := istiov1alpha3.VirtualService{
+	// 	Hosts: []string{
+	// 		"abc.com",
+	// 	},
+	// 	Gateways: []string{
+	// 		"mygateway",
+	// 	},
+	// 	Http: []*istiov1alpha3.HTTPRoute{
+	// 		{
+	// 			Name: "aaa",
+	// 			Match: []*istiov1alpha3.HTTPMatchRequest{
+	// 				{
+	// 					Uri: *istiov1alpha3.StringMatch{},
+	// 				},
+	// 			},
+	// 			Rewrite: *istiov1alpha3.HTTPRewrite{},
+	// 			Route:   []*istiov1alpha3.HTTPRouteDestination{},
+	// 		},
+	// 	},
+	// }
+	// log.Infof("Here is the VS: %v", vs)
+
 	return nil
-	// return fmt.Errorf("Unimplemented")
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition) error {
+func (bp *bounderyProtection) RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
 	return nil
 	// return fmt.Errorf("Unimplemented - service exposure delete")
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding) error {
+func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 	return nil
 	// return fmt.Errorf("Unimplemented")
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding) error {
+func (bp *bounderyProtection) RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 	return nil
 	// return fmt.Errorf("Unimplemented - service binding delete")
 }

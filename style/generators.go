@@ -14,18 +14,18 @@ import (
 
 // MeshFedConfig creates/destroys the underlying mesh objects that implement a mmv1.MeshFedConfig
 type MeshFedConfig interface {
-	EffectMeshFedConfig(ctx context.Context, sb *mmv1.MeshFedConfig) error
-	RemoveMeshFedConfig(ctx context.Context, sb *mmv1.MeshFedConfig) error
+	EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error
+	RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error
 }
 
 // ServiceBinder creates/destroys the underlying mesh objects that implement a mmv1.ServiceBinding
 type ServiceBinder interface {
-	EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding) error
-	RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding) error
+	EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error
+	RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error
 }
 
 // ServiceExposer creates/destroys the underlying mesh objects that implement a mmv1.ServiceExposition
 type ServiceExposer interface {
-	EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition) error
-	RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition) error
+	EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error
+	RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error
 }

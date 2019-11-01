@@ -42,7 +42,7 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	var mfc mmv1.MeshFedConfig
 
 	if err := r.Get(ctx, req.NamespacedName, &mfc); err != nil {
-		log.Warnf("unable to fetch MFC resource: %v", err)
+		log.Warnf("unable to fetch MFC resource: %v Must have been deleted", err)
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 

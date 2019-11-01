@@ -41,7 +41,7 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	var binding mmv1.ServiceBinding
 
 	if err := r.Get(ctx, req.NamespacedName, &binding); err != nil {
-		log.Warnf("unable to fetch SB resource: %v", err)
+		log.Warnf("unable to fetch SB resource: %v Must have been deleted", err)
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
@@ -64,13 +64,13 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 				return ctrl.Result{}, err
 			}
 		} else {
-			err = styleReconciler.EffectServiceBinding(ctx, &binding)
+			err = styleReconciler.EffectServiceBinding(ctx, &binding, &mfc)
 			return ctrl.Result{}, nil
 		}
 	} else {
 		// The object is being deleted
 		if containsString(binding.ObjectMeta.Finalizers, myFinalizerName) {
-			if err := styleReconciler.RemoveServiceBinding(ctx, &binding); err != nil {
+			if err := styleReconciler.RemoveServiceBinding(ctx, &binding, &mfc); err != nil {
 				return ctrl.Result{}, err
 			}
 			binding.ObjectMeta.Finalizers = removeString(binding.ObjectMeta.Finalizers, myFinalizerName)
