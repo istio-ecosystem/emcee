@@ -1,0 +1,16 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: MeshFedConfig
+metadata:
+  name: limited-trust
+spec:
+  # TODO What is this?
+  TlsContextSelector:
+    foo: bar
+  UseEgressGateway: true
+  EgressGatewaySelector:
+    istio: egressgateway
+  EgressGatewayPort: 10001
+  UseIngressGateway: true
+  IngressGatewaySelector:
+    istio: ingressgateway
+  IngressGatewayPort: 15443

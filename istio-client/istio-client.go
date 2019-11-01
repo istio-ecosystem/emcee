@@ -2,17 +2,21 @@ package istioclient
 
 import (
 	"log"
+	"os"
 
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// GetIstioClient creates an Istio client based on Kubernetes API server $KUBECONFIG
 func GetIstioClient() *versionedclient.Clientset {
-	// TODO: fix hardcode stuff
-	kubeconfig := "/Users/mb/.bluemix/plugins/container-service/clusters/istio-test-paid2/kube-config-dal13-istio-test-paid2.yml"
-	namespace := "default"
-	if len(kubeconfig) == 0 || len(namespace) == 0 {
-		log.Fatalf("Environment variables KUBECONFIG and NAMESPACE need to be set")
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		log.Fatalf("Environment variables KUBECONFIG must be set")
+	}
+	namespace := os.Getenv("NAMESPACE")
+	if namespace == "" {
+		namespace = "default"
 	}
 	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
