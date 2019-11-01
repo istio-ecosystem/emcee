@@ -9,4 +9,18 @@ https://github.com/istio-ecosystem/multi-mesh-examples/blob/master/add_hoc_limit
 
 ## Developer instructions
 
+Before running, enable the new CRDs on your Kubernetes cluster:
+
+``` bash
+kubectl apply -f config/crd/bases/mm.ibm.istio.io_meshfedconfigs.yaml
+kubectl apply -f config/crd/bases/mm.ibm.istio.io_servicebindings.yaml
+kubectl apply -f config/crd/bases/mm.ibm.istio.io_serviceexpositions.yaml
+```
+
 To start, do `make run`
+
+To test, we first need to tell the system what kind of security to implement:
+
+``` bash
+kubectl apply -f samples/limited-trust.yaml
+```
