@@ -81,6 +81,54 @@ func CreateIstioGateway(r istioclient.Interface, name string, namespace string, 
 	return createdGateway, err
 }
 
+func DeleteIstioGateway(r istioclient.Interface, name string, namespace string) error {
+	if err := r.NetworkingV1alpha3().Gateways(namespace).Delete(name, nil); err != nil {
+		log.Infof("Delete an egress gateway: <Error: %v>", err)
+		return err
+	}
+	return nil
+}
+
+func CreateIstioVirtualService(r istioclient.Interface, name string, namespace string, virtualservice istiov1alpha3.VirtualService, uid types.UID) (*v1alpha3.VirtualService, error) {
+	vs := &v1alpha3.VirtualService{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "virtualservice",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+		},
+		Spec: v1alpha3.VirtualServiceSpec{
+			VirtualService: virtualservice,
+		},
+	}
+	if uid != "" {
+		ctrl := true
+		vs.ObjectMeta.GenerateName = name + "-"
+		vs.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: MeshFedVersion,
+				Kind:       "MeshFedConfig",
+				Name:       name,
+				UID:        uid,
+				Controller: &ctrl,
+			},
+		}
+	} else {
+		vs.ObjectMeta.Name = name
+	}
+	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
+	log.Infof("create an Virtual Service: <Error: %v VS: %v>", err, createdVirtualService)
+	return createdVirtualService, err
+}
+
+func DeleteIstioVirtualService(r istioclient.Interface, name string, namespace string) error {
+	if err := r.NetworkingV1alpha3().VirtualServices(namespace).Delete(name, nil); err != nil {
+		log.Infof("Delete a virtual service: <Error: %v>", err)
+		return err
+	}
+	return nil
+}
+
 func GetTlsSecret(ctx context.Context, c client.Client, tlsSelector client.MatchingLabels) (corev1.Secret, error) {
 	var tlsSecretList corev1.SecretList
 	var tlsSecret corev1.Secret

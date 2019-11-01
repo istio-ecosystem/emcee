@@ -14,8 +14,10 @@ import (
 	"github.ibm.com/istio-research/mc2019/style"
 	mfutil "github.ibm.com/istio-research/mc2019/util"
 
+	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -84,6 +86,8 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 	// }
 
 	// Create an Istio Gateway
+	var CreatedGW *v1alpha3.Gateway
+	var err error
 	if mfc.Spec.UseEgressGateway {
 		egressGatewayPort := mfc.Spec.EgressGatewayPort
 		if egressGatewayPort == 0 {
@@ -99,7 +103,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 							Name:     "https-meshfed-port",
 							Protocol: "HTTPS",
 						},
-						Hosts: []string{"*"},
+						Hosts: []string{"*"}, //  <-- TODO
 						Tls: &istiov1alpha3.Server_TLSOptions{
 							Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
 							ServerCertificate: "/etc/istio/certs/tls.crt",
@@ -109,9 +113,11 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 					},
 				},
 			}
-			if _, err := mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), se.GetNamespace(), gateway, se.GetUID()); err != nil {
+			CreatedGW, err = mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), se.GetNamespace(), gateway, se.GetUID())
+			if err != nil {
 				return err
 			}
+			log.Infof("Here is the GW: %v", CreatedGW)
 		} else {
 			// use an existing gateway
 			// TODO
@@ -123,27 +129,46 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 	}
 
 	// Create an Istio Virtual Service
-	// vs := istiov1alpha3.VirtualService{
-	// 	Hosts: []string{
-	// 		"abc.com",
-	// 	},
-	// 	Gateways: []string{
-	// 		"mygateway",
-	// 	},
-	// 	Http: []*istiov1alpha3.HTTPRoute{
-	// 		{
-	// 			Name: "aaa",
-	// 			Match: []*istiov1alpha3.HTTPMatchRequest{
-	// 				{
-	// 					Uri: *istiov1alpha3.StringMatch{},
-	// 				},
-	// 			},
-	// 			Rewrite: *istiov1alpha3.HTTPRewrite{},
-	// 			Route:   []*istiov1alpha3.HTTPRouteDestination{},
-	// 		},
-	// 	},
-	// }
-	// log.Infof("Here is the VS: %v", vs)
+	vs := istiov1alpha3.VirtualService{
+		Hosts: []string{
+			"*", // <-- TODO
+		},
+		Gateways: []string{
+			CreatedGW.Name,
+		},
+		Http: []*istiov1alpha3.HTTPRoute{
+			{
+				Name: ("route-" + CreatedGW.Name), // <--
+				Match: []*istiov1alpha3.HTTPMatchRequest{
+					{
+						Uri: &istiov1alpha3.StringMatch{
+							MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: "/bookinfo/myratings/v1/"}, // <--
+						},
+					},
+				},
+				Rewrite: &istiov1alpha3.HTTPRewrite{
+					Uri:       "/",
+					Authority: "myratings.bookinfo.svc.cluster.local", // <-- TODO
+				},
+				Route: []*istiov1alpha3.HTTPRouteDestination{
+					{
+						Destination: &istiov1alpha3.Destination{
+							Host:   "myratings.bookinfo.svc.cluster.local", //   <-- TODO
+							Subset: se.Spec.Subset,
+							Port: &istiov1alpha3.PortSelector{
+								Number: se.Spec.Port,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	log.Infof("Here is the VS: %v", vs)
+	if _, err := mfutil.CreateIstioVirtualService(bp.istioCli, se.GetName(), se.GetNamespace(), vs, se.GetUID()); err != nil {
+		mfutil.DeleteIstioGateway(bp.istioCli, CreatedGW.Name, CreatedGW.Namespace)
+		return err
+	}
 
 	return nil
 }
