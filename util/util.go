@@ -49,6 +49,13 @@ func ErrorNotFound(err error) bool {
 	return false
 }
 
+func ErrorAlreadyExists(err error) bool {
+	if apierrs.IsAlreadyExists(err) {
+		return true
+	}
+	return false
+}
+
 func CreateIstioGateway(r istioclient.Interface, name string, namespace string, gateway istiov1alpha3.Gateway, uid types.UID) (*v1alpha3.Gateway, error) {
 	gw := &v1alpha3.Gateway{
 		TypeMeta: metav1.TypeMeta{
@@ -61,9 +68,11 @@ func CreateIstioGateway(r istioclient.Interface, name string, namespace string, 
 			Gateway: gateway,
 		},
 	}
+
+	gw.ObjectMeta.Name = name
 	if uid != "" {
 		ctrl := true
-		gw.ObjectMeta.GenerateName = name + "-"
+		//gw.ObjectMeta.GenerateName = name + "-"
 		gw.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
 			{
 				APIVersion: MeshFedVersion,
@@ -73,12 +82,15 @@ func CreateIstioGateway(r istioclient.Interface, name string, namespace string, 
 				Controller: &ctrl,
 			},
 		}
-	} else {
-		gw.ObjectMeta.Name = name
 	}
+
 	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
 	log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
-	return createdGateway, err
+	if ErrorAlreadyExists(err) {
+		return createdGateway, nil
+	} else {
+		return createdGateway, err
+	}
 }
 
 func DeleteIstioGateway(r istioclient.Interface, name string, namespace string) error {
@@ -101,9 +113,10 @@ func CreateIstioVirtualService(r istioclient.Interface, name string, namespace s
 			VirtualService: virtualservice,
 		},
 	}
+	vs.ObjectMeta.Name = name
 	if uid != "" {
 		ctrl := true
-		vs.ObjectMeta.GenerateName = name + "-"
+		//vs.ObjectMeta.GenerateName = name + "-"
 		vs.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
 			{
 				APIVersion: MeshFedVersion,
@@ -113,12 +126,14 @@ func CreateIstioVirtualService(r istioclient.Interface, name string, namespace s
 				Controller: &ctrl,
 			},
 		}
-	} else {
-		vs.ObjectMeta.Name = name
 	}
 	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
 	log.Infof("create an Virtual Service: <Error: %v VS: %v>", err, createdVirtualService)
-	return createdVirtualService, err
+	if ErrorAlreadyExists(err) {
+		return createdVirtualService, nil
+	} else {
+		return createdVirtualService, err
+	}
 }
 
 func DeleteIstioVirtualService(r istioclient.Interface, name string, namespace string) error {

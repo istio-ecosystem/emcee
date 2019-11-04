@@ -33,6 +33,10 @@ var (
 	_ style.ServiceExposer = &bounderyProtection{}
 )
 
+const (
+	DEFAULT_PREFIX = ".svc.cluster.local"
+)
+
 // NewBoundaryProtectionMeshFedConfig creates a "Boundary Protection" style implementation for handling MeshFedConfig
 func NewBoundaryProtectionMeshFedConfig(cli client.Client, istioCli istioclient.Interface) style.MeshFedConfig {
 	return &bounderyProtection{
@@ -103,7 +107,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 							Name:     "https-meshfed-port",
 							Protocol: "HTTPS",
 						},
-						Hosts: []string{"*"}, //  <-- TODO
+						Hosts: []string{"*"},
 						Tls: &istiov1alpha3.Server_TLSOptions{
 							Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
 							ServerCertificate: "/etc/istio/certs/tls.crt",
@@ -129,31 +133,34 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 	}
 
 	// Create an Istio Virtual Service
+	name := se.GetName()
+	namespace := se.GetNamespace()
+	fullname := name + "." + namespace + DEFAULT_PREFIX
 	vs := istiov1alpha3.VirtualService{
 		Hosts: []string{
-			"*", // <-- TODO
+			"*",
 		},
 		Gateways: []string{
-			CreatedGW.Name,
+			name,
 		},
 		Http: []*istiov1alpha3.HTTPRoute{
 			{
-				Name: ("route-" + CreatedGW.Name), // <--
+				Name: ("route-" + name),
 				Match: []*istiov1alpha3.HTTPMatchRequest{
 					{
 						Uri: &istiov1alpha3.StringMatch{
-							MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: "/bookinfo/myratings/v1/"}, // <--
+							MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: namespace + "/" + name}, // <--
 						},
 					},
 				},
 				Rewrite: &istiov1alpha3.HTTPRewrite{
 					Uri:       "/",
-					Authority: "myratings.bookinfo.svc.cluster.local", // <-- TODO
+					Authority: fullname,
 				},
 				Route: []*istiov1alpha3.HTTPRouteDestination{
 					{
 						Destination: &istiov1alpha3.Destination{
-							Host:   "myratings.bookinfo.svc.cluster.local", //   <-- TODO
+							Host:   fullname,
 							Subset: se.Spec.Subset,
 							Port: &istiov1alpha3.PortSelector{
 								Number: se.Spec.Port,
@@ -165,11 +172,18 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 		},
 	}
 	log.Infof("Here is the VS: %v", vs)
-	if _, err := mfutil.CreateIstioVirtualService(bp.istioCli, se.GetName(), se.GetNamespace(), vs, se.GetUID()); err != nil {
-		mfutil.DeleteIstioGateway(bp.istioCli, CreatedGW.Name, CreatedGW.Namespace)
+	if _, err := mfutil.CreateIstioVirtualService(bp.istioCli, name, namespace, vs, se.GetUID()); err != nil {
+		mfutil.DeleteIstioGateway(bp.istioCli, name, namespace)
 		return err
 	}
 
+	se.Spec.Endpoints = []string{
+		"yello",
+		"mello",
+	}
+	if err := bp.cli.Update(ctx, se); err != nil {
+		return err
+	}
 	return nil
 }
 

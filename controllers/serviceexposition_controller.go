@@ -71,7 +71,6 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 				return ctrl.Result{}, err
 			}
 		} else {
-			log.Warnf("++++++++++++++++++++++++ 1")
 			err = styleReconciler.EffectServiceExposure(ctx, &exposition, &mfc)
 			return ctrl.Result{}, nil
 		}

@@ -1,23 +1,25 @@
+## EXPOSE
+
 # kubectl apply --context=$CTX_CLUSTER2 -n istio-private-gateways -f - <<EOF
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: istio-private-ingressgateway
+  name: istio-private-ingressgateway                                    # <--
 spec:
   selector:
-    istio: private-ingressgateway
+    istio: private-ingressgateway                                       # <--
   servers:
   - port:
-      number: 15443
-      name: https
-      protocol: HTTPS
+      number: 15443                                                     # <--
+      name: https                                                       
+      protocol: HTTPS                                                   # <--
     tls:
       mode: MUTUAL
-      serverCertificate: /etc/istio/c2.example.com/certs/tls.crt
-      privateKey: /etc/istio/c2.example.com/certs/tls.key
-      caCertificates: /etc/istio/example.com/certs/example.com.crt
-    hosts:
-    - c2.example.com
+      serverCertificate: /etc/istio/c2.example.com/certs/tls.crt        # <--
+      privateKey: /etc/istio/c2.example.com/certs/tls.key               # <--
+      caCertificates: /etc/istio/example.com/certs/example.com.crt      # <--
+    hosts:  
+    - c2.example.com                                                    # <--
 ---
 # kubectl apply --context=$CTX_CLUSTER2 -n istio-private-gateways -f - <<EOF
 apiVersion: networking.istio.io/v1alpha3
@@ -26,19 +28,34 @@ metadata:
   name: privately-exposed-services
 spec:
   hosts:
-  - c2.example.com
+  - c2.example.com                                      # <--
   gateways:
-  - istio-private-ingressgateway
+  - istio-private-ingressgateway                        # <--
   http:
   - match:
     - uri:
-        prefix: /bookinfo/myratings/v1/
+        prefix: /bookinfo/myratings/v1/                 # <--
     rewrite:
       uri: /
-      authority: myratings.bookinfo.svc.cluster.local
+      authority: myratings.bookinfo.svc.cluster.local   # <--
     route:
     - destination:
         port:
-          number: 9080
-        subset: v1
-        host: myratings.bookinfo.svc.cluster.local
+          number: 9080                                  # <--
+        subset: v1                                      # <-- 
+        host: myratings.bookinfo.svc.cluster.local      # <--
+
+
+## CONSUME
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: c2-example-com
+spec:
+  ports:
+  - protocol: TCP
+    port: 15443
+    name: tls-for-cross-cluster-communication
+
+
