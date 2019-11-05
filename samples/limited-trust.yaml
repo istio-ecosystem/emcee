@@ -4,13 +4,13 @@ metadata:
   name: limited-trust
 spec:
   # TODO What is this?
-  TlsContextSelector:
+  tls_context_selector:
     foo: bar
-  UseEgressGateway: true
-  EgressGatewaySelector:
+  use_egress_gateway: true
+  egress_gateway_selector:
     istio: egressgateway
-  EgressGatewayPort: 10001
-  UseIngressGateway: true
-  IngressGatewaySelector:
+  egress_gateway_port: 10001
+  use_ingress_gateway: true
+  ingress_gateway_selector:
     istio: ingressgateway
-  IngressGatewayPort: 15443
+  ingress_gateway_port: 15443

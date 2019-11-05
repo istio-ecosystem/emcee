@@ -24,3 +24,11 @@ To test, we first need to tell the system what kind of security to implement:
 ``` bash
 kubectl apply -f samples/limited-trust.yaml
 ```
+
+By applying this MeshFedConfig, the mc2019 system creates a namespace, an ingress and an egress service.
+
+TODO It is still your job to create the Secret and Deployment.
+
+Next, we will expose a Service
+
+TODO start a service and expose it

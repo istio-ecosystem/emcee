@@ -18,6 +18,9 @@ import (
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -66,14 +69,144 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 	// If the MeshFedConfig changes we may need to re-create all of the Istio
 	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
 	// re-reconcile of every ServiceBinding and ServiceExposition.
-	return nil
-	// return fmt.Errorf("Unimplemented")
+
+	nsMC := corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("istio-%s", mfc.GetName()),
+		},
+	}
+
+	// Don't try to create the namespace if it already exists
+	var nsDummy corev1.Namespace
+	err := bp.cli.Get(ctx, client.ObjectKey{Name: nsMC.GetName()}, &nsDummy)
+	if err != nil {
+		err := bp.cli.Create(ctx, &nsMC)
+		if err == nil {
+			log.Infof("Created Namespace %q to hold Ingress/Egress", nsMC.GetName())
+		} else {
+			log.Infof("Failed to create Namespace %q: %v", nsMC.GetName(), err)
+			return err
+		}
+	}
+
+	// TODO Create Secrets.  HOW?  I lack the data to create them with
+	log.Warnf("TODO: Create Secrets")
+
+	// TODO Do I need to check UseEgressGateway?  This handler should not get any MeshFedConfig without it...
+	if mfc.Spec.UseEgressGateway {
+		// Create Egress Service if it doesn't already exist
+		egressSvc := corev1.Service{
+			TypeMeta: metav1.TypeMeta{
+				Kind: "Service",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("istio-%s-egress-%d", mfc.GetName(), mfc.Spec.EgressGatewayPort),
+				Namespace: nsMC.GetName(),
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Name: "http",
+						// TODO ServicePort.Port is a uint32, EgressGatewayPort should be too?
+						Port:       int32(mfc.Spec.EgressGatewayPort),
+						TargetPort: intstr.FromInt(int(mfc.Spec.EgressGatewayPort)),
+					}, // TODO the other ports?  How do we know which ports?  How do we know
+					// the Egress port is HTTP?
+				},
+				Selector: mfc.Spec.EgressGatewaySelector,
+			},
+		}
+		err = mfutil.ApplyService(ctx, bp.cli, &egressSvc)
+		if err != nil {
+			return err
+		}
+
+		// TODO Create Egress ServiceAccount
+		// TODO Create Egress Deployment
+	}
+
+	// TODO Do I need to check UseIngressGateway?  This handler should not get any MeshFedConfig without it...
+	if mfc.Spec.UseIngressGateway {
+		// Create Ingress Service if it doesn't already exist
+		ingressSvc := corev1.Service{
+			TypeMeta: metav1.TypeMeta{
+				Kind: "Service",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("istio-%s-ingress-%d", mfc.GetName(), mfc.Spec.IngressGatewayPort),
+				Namespace: nsMC.GetName(),
+			},
+			Spec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeLoadBalancer,
+				Ports: []corev1.ServicePort{
+					{
+						Name: "https-for-cross-cluster-communication",
+						// TODO ServicePort.Port is a uint32, IngressGatewayPort should be too
+						// TODO How do we know if the IngressGatewayPort becomes the https port or the tls port?
+						Port:       int32(mfc.Spec.IngressGatewayPort),
+						TargetPort: intstr.FromInt(int(mfc.Spec.IngressGatewayPort)),
+					},
+					{
+						Name:       "tls-for-cross-cluster-communication",
+						Port:       15444,
+						TargetPort: intstr.FromInt(15443),
+					},
+					{
+						Name:       "tcp-1",
+						Port:       31400,
+						TargetPort: intstr.FromInt(31400),
+					},
+					{
+						Name:       "tcp-2",
+						Port:       31401,
+						TargetPort: intstr.FromInt(31401),
+					},
+				},
+				Selector: mfc.Spec.IngressGatewaySelector,
+			},
+		}
+		err = mfutil.ApplyService(ctx, bp.cli, &ingressSvc)
+		if err != nil {
+			return err
+		}
+
+		// TODO Create Ingress ServiceAccount
+		// TODO Create Ingress Deployment
+	}
+
+	return err
 }
 
 // Implements Vadim-style
 func (bp *bounderyProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
-	return nil
-	// return fmt.Errorf("Unimplemented - MeshFedConfig delete")
+	nsMC := corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("istio-%s", mfc.GetName()),
+		},
+	}
+
+	// Don't try to delete the namespace if it doesn't exist
+	var nsDummy corev1.Namespace
+	err := bp.cli.Get(ctx, client.ObjectKey{Name: nsMC.GetName()}, &nsDummy)
+	if err != nil {
+		log.Infof("Skipped delete of Namespace %q", nsMC.GetName())
+		return nil
+	}
+
+	err = bp.cli.Delete(ctx, &nsMC)
+	if err == nil {
+		log.Infof("Deleted Namespace %q", nsMC.GetName())
+	} else {
+		log.Infof("Failed to delete Namespace %q: %v (a %T)", nsMC.GetName(), err, err)
+	}
+
+	return err
 }
 
 // Implements Vadim-style
