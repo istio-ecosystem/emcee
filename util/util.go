@@ -163,31 +163,3 @@ func GetTlsSecret(ctx context.Context, c client.Client, tlsSelector client.Match
 		return tlsSecretList.Items[0], fmt.Errorf("Did not find a single secret")
 	}
 }
-
-// ApplyService creates or updates a K8s Service
-func ApplyService(ctx context.Context, cli client.Client, service *corev1.Service) error {
-	key := client.ObjectKey{
-		Name:      service.GetName(),
-		Namespace: service.GetNamespace(),
-	}
-	var existingSvc corev1.Service
-	err := cli.Get(ctx, key, &existingSvc)
-	if err != nil {
-		err = cli.Create(ctx, service)
-		if err != nil {
-			log.Warnf("Could not create Service %v: %v", service, err)
-		} else {
-			log.Infof("Created service %v", key)
-		}
-		return err
-	}
-
-	// TODO Merge with existingSvc?
-	err = cli.Update(ctx, service)
-	if err != nil {
-		log.Warnf("Could not update Service %v: %v", service, err)
-	} else {
-		log.Infof("Updated service %v", key)
-	}
-	return err
-}
