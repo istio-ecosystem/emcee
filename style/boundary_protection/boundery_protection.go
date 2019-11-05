@@ -18,6 +18,9 @@ import (
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -66,14 +69,134 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 	// If the MeshFedConfig changes we may need to re-create all of the Istio
 	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
 	// re-reconcile of every ServiceBinding and ServiceExposition.
+
+	nsMC := corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("istio-%s", mfc.GetName()),
+		},
+	}
+
+	// Don't try to create the namespace if it already exists
+	err := bp.cli.Create(ctx, &nsMC)
+	if err == nil {
+		log.Infof("Created Namespace %q to hold Ingress/Egress", nsMC.GetName())
+	} else {
+		if !mfutil.ErrorAlreadyExists(err) {
+			log.Infof("Failed to create Namespace %q: %v", nsMC.GetName(), err)
+			return err
+		}
+	}
+
+	// TODO Create Secrets.  HOW?  I lack the data to create them with
+	log.Warnf("TODO: Create Secrets")
+
+	// Create Egress Service
+	egressSvc := corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("istio-%s-egress-%d", mfc.GetName(), mfc.Spec.EgressGatewayPort),
+			Namespace: nsMC.GetName(),
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					// TODO ServicePort.Port is a uint32, EgressGatewayPort should be too?
+					Port:       int32(mfc.Spec.EgressGatewayPort),
+					TargetPort: intstr.FromInt(int(mfc.Spec.EgressGatewayPort)),
+				}, // TODO the other ports?  How do we know which ports?  How do we know
+				// the Egress port is HTTP?
+			},
+			Selector: mfc.Spec.EgressGatewaySelector,
+		},
+	}
+
+	err = bp.cli.Create(ctx, &egressSvc)
+	if err != nil && !mfutil.ErrorAlreadyExists(err) {
+		return err
+	}
+	log.Infof("Created Egress %q", egressSvc.GetName())
+
+	// TODO Create Egress ServiceAccount
+	// TODO Create Egress Deployment
+
+	// Create Ingress Service if it doesn't already exist
+	ingressSvc := corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("istio-%s-ingress-%d", mfc.GetName(), mfc.Spec.IngressGatewayPort),
+			Namespace: nsMC.GetName(),
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+			Ports: []corev1.ServicePort{
+				{
+					Name: "https-for-cross-cluster-communication",
+					// TODO ServicePort.Port is a uint32, IngressGatewayPort should be too
+					// TODO How do we know if the IngressGatewayPort becomes the https port or the tls port?
+					Port:       int32(mfc.Spec.IngressGatewayPort),
+					TargetPort: intstr.FromInt(int(mfc.Spec.IngressGatewayPort)),
+				},
+				{
+					Name:       "tls-for-cross-cluster-communication",
+					Port:       15444,
+					TargetPort: intstr.FromInt(15443),
+				},
+				{
+					Name:       "tcp-1",
+					Port:       31400,
+					TargetPort: intstr.FromInt(31400),
+				},
+				{
+					Name:       "tcp-2",
+					Port:       31401,
+					TargetPort: intstr.FromInt(31401),
+				},
+			},
+			Selector: mfc.Spec.IngressGatewaySelector,
+		},
+	}
+	err = bp.cli.Create(ctx, &ingressSvc)
+	if err != nil && !mfutil.ErrorAlreadyExists(err) {
+		return err
+	}
+	log.Infof("Created Ingress %q", ingressSvc.GetName())
+
+	// TODO Create Ingress ServiceAccount
+	// TODO Create Ingress Deployment
+
 	return nil
-	// return fmt.Errorf("Unimplemented")
 }
 
 // Implements Vadim-style
 func (bp *bounderyProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
-	return nil
-	// return fmt.Errorf("Unimplemented - MeshFedConfig delete")
+
+	// TODO: Use K8s ownerReference to eliminate the need to explicitly code this
+
+	nsMC := corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("istio-%s", mfc.GetName()),
+		},
+	}
+
+	err := bp.cli.Delete(ctx, &nsMC)
+	if err == nil {
+		log.Infof("Deleted Namespace %q", nsMC.GetName())
+	} else if !mfutil.ErrorNotFound(err) {
+		log.Infof("Failed to delete Namespace %q: %v", nsMC.GetName(), err)
+	}
+
+	return err
 }
 
 // Implements Vadim-style
