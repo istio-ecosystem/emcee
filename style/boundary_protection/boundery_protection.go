@@ -177,13 +177,13 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 		return err
 	}
 
-	se.Spec.Endpoints = []string{
-		"yello",
-		"mello",
-	}
-	if err := bp.cli.Update(ctx, se); err != nil {
-		return err
-	}
+	// se.Spec.Endpoints = []string{
+	// 	"yello",
+	// 	"mello",
+	// }
+	// if err := bp.cli.Update(ctx, se); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 

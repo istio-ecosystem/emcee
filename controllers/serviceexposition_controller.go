@@ -49,20 +49,30 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 	}
 
 	mfcSelector := exposition.Spec.MeshFedConfigSelector
+	log.Warnf("Getting mesh fed config for SE ... ")
 	mfc, err := GetMeshFedConfig(ctx, r.Client, mfcSelector)
+	log.Warnf("Getting mesh fed config for SE ... got it")
 	if (err != nil) || (mfc.ObjectMeta.Name == "") {
-		log.Warnf("SE did not find an mfc. will requeue the request: %v", err)
-		return ctrl.Result{Requeue: true}, nil
+		if exposition.ObjectMeta.DeletionTimestamp.IsZero() {
+			log.Warnf("SE did not find an mfc. will requeue the request: %v", err)
+			return ctrl.Result{Requeue: true}, nil
+		} else {
+			log.Warnf("SE did not find an mfc. being deleted. not requeueing: %v", err)
+			exposition.ObjectMeta.Finalizers = removeString(exposition.ObjectMeta.Finalizers, myFinalizerName)
+			if err := r.Update(context.Background(), &exposition); err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
 	}
-
-	// create Istio Gateway
-
-	// create Istio Virtual Service
 
 	styleReconciler, err := GetExposureReconciler(&mfc, r.Client, r.Interface)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// create Istio Gateway
+	// create Istio Virtual Service
 
 	if exposition.ObjectMeta.DeletionTimestamp.IsZero() {
 		if !containsString(exposition.ObjectMeta.Finalizers, myFinalizerName) {

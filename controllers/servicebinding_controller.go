@@ -46,10 +46,21 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	}
 
 	mfcSelector := binding.Spec.MeshFedConfigSelector
+	log.Warnf("Getting mesh fed config for SB ... ")
 	mfc, err := GetMeshFedConfig(ctx, r, mfcSelector)
+	log.Warnf("Getting mesh fed config for SB ... got it ")
 	if (err != nil) || (mfc.ObjectMeta.Name == "") {
-		log.Warnf("SB did not find an mfc. will requeue the request: %v", err)
-		return ctrl.Result{Requeue: true}, nil
+		if binding.ObjectMeta.DeletionTimestamp.IsZero() {
+			log.Warnf("SB did not find an mfc. will requeue the request: %v", err)
+			return ctrl.Result{Requeue: true}, nil
+		} else {
+			log.Warnf("SB did not find an mfc. being deleted. not requeueing: %v", err)
+			binding.ObjectMeta.Finalizers = removeString(binding.ObjectMeta.Finalizers, myFinalizerName)
+			if err := r.Update(context.Background(), &binding); err != nil {
+				return ctrl.Result{}, err
+			}
+			return ctrl.Result{}, nil
+		}
 	}
 
 	styleReconciler, err := GetBindingReconciler(&mfc, r.Client, r.Interface)
