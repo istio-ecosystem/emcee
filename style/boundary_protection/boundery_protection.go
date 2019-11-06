@@ -69,16 +69,7 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
 	// re-reconcile of every ServiceBinding and ServiceExposition.
 
-	nsMC := corev1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Namespace",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("istio-%s", mfc.GetName()),
-		},
-	}
-
-	// Don't try to create the namespace if it already exists
+	nsMC := boundaryProtectionNamespace(mfc.GetName())
 	err := bp.cli.Create(ctx, &nsMC)
 	if err == nil {
 		log.Infof("Created Namespace %q to hold Ingress/Egress", nsMC.GetName())
@@ -89,31 +80,12 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 		}
 	}
 
-	// TODO Create Secrets.  HOW?  I lack the data to create them with
-	log.Warnf("TODO: Create Secrets")
-
 	// Create Egress Service
-	egressSvc := corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Service",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("istio-%s-egress-%d", mfc.GetName(), mfc.Spec.EgressGatewayPort),
-			Namespace: nsMC.GetName(),
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name: "http",
-					// TODO ServicePort.Port is a uint32, EgressGatewayPort should be too?
-					Port:       int32(mfc.Spec.EgressGatewayPort),
-					TargetPort: intstr.FromInt(int(mfc.Spec.EgressGatewayPort)),
-				}, // TODO the other ports?  How do we know which ports?  How do we know
-				// the Egress port is HTTP?
-			},
-			Selector: mfc.Spec.EgressGatewaySelector,
-		},
-	}
+	egressSvc := boundaryProtectionEgressService(mfc.GetName(),
+		nsMC.GetName(),
+		// TODO Our EgressGatewayPort hould be int32 like ports
+		int32(mfc.Spec.EgressGatewayPort),
+		mfc.Spec.EgressGatewaySelector)
 
 	err = bp.cli.Create(ctx, &egressSvc)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
@@ -121,54 +93,36 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 	}
 	log.Infof("Created Egress %q", egressSvc.GetName())
 
-	// TODO Create Egress ServiceAccount
+	egressSA := boundaryProtectionEgressServiceAccount(mfc.GetName(),
+		nsMC.GetName())
+	err = bp.cli.Create(ctx, &egressSA)
+	if err != nil && !mfutil.ErrorAlreadyExists(err) {
+		return err
+	}
+	log.Infof("Created Egress Service Account %q", egressSA.GetName())
+
 	// TODO Create Egress Deployment
 
 	// Create Ingress Service if it doesn't already exist
-	ingressSvc := corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Service",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("istio-%s-ingress-%d", mfc.GetName(), mfc.Spec.IngressGatewayPort),
-			Namespace: nsMC.GetName(),
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
-			Ports: []corev1.ServicePort{
-				{
-					Name: "https-for-cross-cluster-communication",
-					// TODO ServicePort.Port is a uint32, IngressGatewayPort should be too
-					// TODO How do we know if the IngressGatewayPort becomes the https port or the tls port?
-					Port:       int32(mfc.Spec.IngressGatewayPort),
-					TargetPort: intstr.FromInt(int(mfc.Spec.IngressGatewayPort)),
-				},
-				{
-					Name:       "tls-for-cross-cluster-communication",
-					Port:       15444,
-					TargetPort: intstr.FromInt(15443),
-				},
-				{
-					Name:       "tcp-1",
-					Port:       31400,
-					TargetPort: intstr.FromInt(31400),
-				},
-				{
-					Name:       "tcp-2",
-					Port:       31401,
-					TargetPort: intstr.FromInt(31401),
-				},
-			},
-			Selector: mfc.Spec.IngressGatewaySelector,
-		},
-	}
+	// TODO ServicePort.Port is a uint32, IngressGatewayPort should be too
+	ingressSvc := boundaryProtectionIngressService(mfc.GetName(),
+		nsMC.GetName(),
+		int32(mfc.Spec.IngressGatewayPort),
+		mfc.Spec.IngressGatewaySelector)
 	err = bp.cli.Create(ctx, &ingressSvc)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
 		return err
 	}
 	log.Infof("Created Ingress %q", ingressSvc.GetName())
 
-	// TODO Create Ingress ServiceAccount
+	ingressSA := boundaryProtectionIngressServiceAccount(mfc.GetName(),
+		nsMC.GetName())
+	err = bp.cli.Create(ctx, &ingressSA)
+	if err != nil && !mfutil.ErrorAlreadyExists(err) {
+		return err
+	}
+	log.Infof("Created Ingress Service Account %q", ingressSA.GetName())
+
 	// TODO Create Ingress Deployment
 
 	return nil
@@ -322,4 +276,100 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 func (bp *bounderyProtection) RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 	return nil
 	// return fmt.Errorf("Unimplemented - service binding delete")
+}
+
+func boundaryProtectionNamespace(name string) corev1.Namespace {
+	return corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("istio-%s", name),
+		},
+	}
+}
+
+func boundaryProtectionEgressService(name, namespace string, port int32, selector map[string]string) corev1.Service {
+	return corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("istio-%s-egress-%d", name, port),
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       port,
+					TargetPort: intstr.FromInt(int(port)),
+				}, // TODO the other ports?  How do we know which ports?  How do we know
+				// the Egress port is HTTP?
+			},
+			Selector: selector,
+		},
+	}
+}
+
+func boundaryProtectionIngressService(name, namespace string, port int32, selector map[string]string) corev1.Service {
+	return corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("istio-%s-ingress-%d", name, port),
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+			Ports: []corev1.ServicePort{
+				{
+					Name: "https-for-cross-cluster-communication",
+					// TODO ServicePort.Port is a uint32, IngressGatewayPort should be too
+					// TODO How do we know if the IngressGatewayPort becomes the https port or the tls port?
+					Port:       port,
+					TargetPort: intstr.FromInt(int(port)),
+				},
+				{
+					Name:       "tls-for-cross-cluster-communication",
+					Port:       15444,
+					TargetPort: intstr.FromInt(15443),
+				},
+				{
+					Name:       "tcp-1",
+					Port:       31400,
+					TargetPort: intstr.FromInt(31400),
+				},
+				{
+					Name:       "tcp-2",
+					Port:       31401,
+					TargetPort: intstr.FromInt(31401),
+				},
+			},
+			Selector: selector,
+		},
+	}
+}
+
+func boundaryProtectionEgressServiceAccount(name, namespace string) corev1.ServiceAccount {
+	return boundaryProtectionXServiceAccount(fmt.Sprintf("istio-%s-egressgateway-service-account", name),
+		namespace)
+}
+
+func boundaryProtectionIngressServiceAccount(name, namespace string) corev1.ServiceAccount {
+	return boundaryProtectionXServiceAccount(fmt.Sprintf("istio-%s-ingressgateway-service-account", name),
+		namespace)
+}
+
+func boundaryProtectionXServiceAccount(name, namespace string) corev1.ServiceAccount {
+	return corev1.ServiceAccount{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ServiceAccount",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
 }
