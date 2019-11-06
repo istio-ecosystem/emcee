@@ -14,7 +14,6 @@ import (
 	"github.ibm.com/istio-research/mc2019/style"
 	mfutil "github.ibm.com/istio-research/mc2019/util"
 
-	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
@@ -213,8 +212,6 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 	// }
 
 	// Create an Istio Gateway
-	var CreatedGW *v1alpha3.Gateway
-	var err error
 	if mfc.Spec.UseEgressGateway {
 		egressGatewayPort := mfc.Spec.EgressGatewayPort
 		if egressGatewayPort == 0 {
@@ -240,11 +237,9 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 					},
 				},
 			}
-			CreatedGW, err = mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), se.GetNamespace(), gateway, se.GetUID())
-			if err != nil {
+			if _, err := mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), se.GetNamespace(), gateway, se.GetUID()); err != nil {
 				return err
 			}
-			log.Infof("Here is the GW: %v", CreatedGW)
 		} else {
 			// use an existing gateway
 			// TODO
@@ -294,19 +289,20 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 			},
 		},
 	}
-	log.Infof("Here is the VS: %v", vs)
 	if _, err := mfutil.CreateIstioVirtualService(bp.istioCli, name, namespace, vs, se.GetUID()); err != nil {
 		mfutil.DeleteIstioGateway(bp.istioCli, name, namespace)
 		return err
 	}
 
-	// se.Spec.Endpoints = []string{
-	// 	"yello",
-	// 	"mello",
-	// }
-	// if err := bp.cli.Update(ctx, se); err != nil {
-	// 	return err
-	// }
+	// TODO: Get the gateway endpoints
+	se.Spec.Endpoints = []string{
+		"yello",
+		"mello",
+	}
+	se.Status.Ready = true
+	if err := bp.cli.Update(ctx, se); err != nil {
+		return err
+	}
 	return nil
 }
 

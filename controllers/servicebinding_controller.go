@@ -46,9 +46,7 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	}
 
 	mfcSelector := binding.Spec.MeshFedConfigSelector
-	log.Warnf("Getting mesh fed config for SB ... ")
 	mfc, err := GetMeshFedConfig(ctx, r, mfcSelector)
-	log.Warnf("Getting mesh fed config for SB ... got it ")
 	if (err != nil) || (mfc.ObjectMeta.Name == "") {
 		if binding.ObjectMeta.DeletionTimestamp.IsZero() {
 			log.Warnf("SB did not find an mfc. will requeue the request: %v", err)

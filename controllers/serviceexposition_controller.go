@@ -44,14 +44,12 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 	var exposition mmv1.ServiceExposition
 
 	if err := r.Get(ctx, req.NamespacedName, &exposition); err != nil {
-		log.Infof("Unable to fetch SE resource: %v Must have been deleted", err)
+		log.Warnf("Unable to fetch SE resource: %v Must have been deleted", err)
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
 	mfcSelector := exposition.Spec.MeshFedConfigSelector
-	log.Warnf("Getting mesh fed config for SE ... ")
 	mfc, err := GetMeshFedConfig(ctx, r.Client, mfcSelector)
-	log.Warnf("Getting mesh fed config for SE ... got it")
 	if (err != nil) || (mfc.ObjectMeta.Name == "") {
 		if exposition.ObjectMeta.DeletionTimestamp.IsZero() {
 			log.Warnf("SE did not find an mfc. will requeue the request: %v", err)

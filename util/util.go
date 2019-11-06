@@ -85,9 +85,15 @@ func CreateIstioGateway(r istioclient.Interface, name string, namespace string, 
 	}
 
 	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
-	log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
+	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
 	if ErrorAlreadyExists(err) {
-		return createdGateway, nil
+		updatedGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return updatedGateway, err
+		}
+		updatedGateway.Spec = gw.Spec
+		updatedGateway, err = r.NetworkingV1alpha3().Gateways(namespace).Update(updatedGateway)
+		return updatedGateway, err
 	} else {
 		return createdGateway, err
 	}
@@ -95,7 +101,7 @@ func CreateIstioGateway(r istioclient.Interface, name string, namespace string, 
 
 func DeleteIstioGateway(r istioclient.Interface, name string, namespace string) error {
 	if err := r.NetworkingV1alpha3().Gateways(namespace).Delete(name, nil); err != nil {
-		log.Infof("Delete an egress gateway: <Error: %v>", err)
+		log.Warnf("Delete an egress gateway: <Error: %v>", err)
 		return err
 	}
 	return nil
@@ -128,9 +134,15 @@ func CreateIstioVirtualService(r istioclient.Interface, name string, namespace s
 		}
 	}
 	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
-	log.Infof("create an Virtual Service: <Error: %v VS: %v>", err, createdVirtualService)
+	// log.Infof("create an Virtual Service: <Error: %v VS: %v>", err, createdVirtualService)
 	if ErrorAlreadyExists(err) {
-		return createdVirtualService, nil
+		updatedVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return updatedVirtualService, err
+		}
+		updatedVirtualService.Spec = vs.Spec
+		updatedVirtualService, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(updatedVirtualService)
+		return updatedVirtualService, err
 	} else {
 		return createdVirtualService, err
 	}
@@ -138,7 +150,7 @@ func CreateIstioVirtualService(r istioclient.Interface, name string, namespace s
 
 func DeleteIstioVirtualService(r istioclient.Interface, name string, namespace string) error {
 	if err := r.NetworkingV1alpha3().VirtualServices(namespace).Delete(name, nil); err != nil {
-		log.Infof("Delete a virtual service: <Error: %v>", err)
+		log.Warnf("Delete a virtual service: <Error: %v>", err)
 		return err
 	}
 	return nil
