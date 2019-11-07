@@ -79,7 +79,6 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 		log.Infof("Could not get secret name from MeshFedConfig: %v", err)
 		return err
 	}
-	log.Infof("@@@ ecs using secret %q", secret)
 
 	// Create Egress Service
 	egressSvc := boundaryProtectionEgressService(mfc.GetName(),
@@ -355,7 +354,7 @@ func boundaryProtectionIngressService(name, namespace string, port int32, select
 				{
 					Name:       "tls-for-cross-cluster-communication",
 					Port:       15444,
-					TargetPort: intstr.FromInt(15443),
+					TargetPort: intstr.FromInt(15444),
 				},
 				{
 					Name:       "tcp-1",
