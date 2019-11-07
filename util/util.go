@@ -156,6 +156,16 @@ func DeleteIstioVirtualService(r istioclient.Interface, name string, namespace s
 	return nil
 }
 
+func GetIngressEndpoints(ctx context.Context, c client.Client, nsn types.NamespacedName) ([]string, error) {
+	var ingressService corev1.Service
+	if err := c.Get(ctx, nsn, &ingressService); err != nil {
+		log.Infof("XXXXXXXXXXXX %v", ingressService)
+		return []string{"1"}, nil
+	}
+	log.Infof("YYYYYYYYYYYY %v", ingressService)
+	return []string{"3"}, nil
+}
+
 func GetTlsSecret(ctx context.Context, c client.Client, tlsSelector client.MatchingLabels) (corev1.Secret, error) {
 	var tlsSecretList corev1.SecretList
 	var tlsSecret corev1.Secret
