@@ -21,6 +21,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -71,105 +72,108 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
 	// re-reconcile of every ServiceBinding and ServiceExposition.
 
-	nsMC := boundaryProtectionNamespace(mfc.GetName())
-	err := bp.cli.Create(ctx, &nsMC)
-	if err == nil {
-		log.Infof("Created Namespace %q to hold Ingress/Egress", nsMC.GetName())
-	} else {
-		if !mfutil.ErrorAlreadyExists(err) {
-			log.Infof("Failed to create Namespace %q: %v", nsMC.GetName(), err)
-			return err
-		}
+	targetNamespace := mfc.GetNamespace()
+
+	secret, err := getSecretName(ctx, mfc, bp.cli)
+	if err != nil {
+		log.Infof("Could not get secret name from MeshFedConfig: %v", err)
+		return err
 	}
+	log.Infof("@@@ ecs using secret %q", secret)
 
 	// Create Egress Service
 	egressSvc := boundaryProtectionEgressService(mfc.GetName(),
-		nsMC.GetName(),
+		targetNamespace,
 		// TODO Our EgressGatewayPort hould be int32 like ports
 		int32(mfc.Spec.EgressGatewayPort),
-		mfc.Spec.EgressGatewaySelector)
+		mfc.Spec.EgressGatewaySelector, mfc)
 
 	err = bp.cli.Create(ctx, &egressSvc)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Egress Service %q: %v", nsMC.GetName(), err)
+		log.Infof("Failed to create Egress Service %s.%s: %v",
+			egressSvc.GetName(), egressSvc.GetNamespace(), err)
 		return err
 	}
-	log.Infof("Created Egress Service %q", egressSvc.GetName())
+	if err == nil {
+		log.Infof("Created Egress Service %s.%s", egressSvc.GetName(), egressSvc.GetNamespace())
+	}
+
+	// TODO: If mfc.Spec.EgressGatewaySelector is empty, default it
+	// TODO: If mfc.Spec.EgressGatewaySelector matches a workload, skip creation of SA and Deployment
 
 	egressSA := boundaryProtectionEgressServiceAccount(mfc.GetName(),
-		nsMC.GetName())
+		targetNamespace, mfc)
 	err = bp.cli.Create(ctx, &egressSA)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Egress ServiceAccount %q: %v", nsMC.GetName(), err)
+		log.Infof("Failed to create Egress ServiceAccount %s.%s: %v",
+			egressSA.GetName(), egressSA.GetNamespace(), err)
 		return err
 	}
-	log.Infof("Created Egress Service Account %q", egressSA.GetName())
+	if err == nil {
+		log.Infof("Created Egress Service Account %s.%s", egressSA.GetName(), egressSA.GetNamespace())
+	}
 
 	egressDeployment := boundaryProtectionEgressDeployment(mfc.GetName()+"-egressgateway",
-		nsMC.GetName(), mfc.Spec.EgressGatewaySelector, &egressSA)
+		targetNamespace, mfc.Spec.EgressGatewaySelector, &egressSA, secret, mfc)
 	err = bp.cli.Create(ctx, &egressDeployment)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Egress Deployment %q: %v", nsMC.GetName(), err)
+		log.Infof("Failed to create Egress Deployment %s.%s: %v",
+			egressDeployment.GetName(), egressDeployment.GetNamespace(), err)
 		return err
 	}
-	log.Infof("Created Egress Deployment %q", egressDeployment.GetName())
+	if err == nil {
+		log.Infof("Created Egress Deployment %s.%s", egressDeployment.GetName(), egressDeployment.GetNamespace())
+	}
 
 	// Create Ingress Service if it doesn't already exist
 	// TODO ServicePort.Port is a uint32, IngressGatewayPort should be too
 	ingressSvc := boundaryProtectionIngressService(mfc.GetName(),
-		nsMC.GetName(),
+		targetNamespace,
 		int32(mfc.Spec.IngressGatewayPort),
-		mfc.Spec.IngressGatewaySelector)
+		mfc.Spec.IngressGatewaySelector, mfc)
 	err = bp.cli.Create(ctx, &ingressSvc)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Ingress Service %q: %v", nsMC.GetName(), err)
+		log.Infof("Failed to create Ingress Service %s.%s: %v",
+			ingressSvc.GetName(), ingressSvc.GetNamespace(), err)
 		return err
 	}
-	log.Infof("Created Ingress %q", ingressSvc.GetName())
+	if err == nil {
+		log.Infof("Created Ingress %q", ingressSvc.GetName())
+	}
 
-	ingressSA := boundaryProtectionIngressServiceAccount(mfc.GetName()+"-egressgateway",
-		nsMC.GetName())
+	// TODO: If mfc.Spec.IngressGatewaySelector is empty, default it
+	// TODO: If mfc.Spec.IngressGatewaySelector matches a workload, skip creation of SA and Deployment
+
+	ingressSA := boundaryProtectionIngressServiceAccount(mfc.GetName()+"-ingressgateway",
+		targetNamespace, mfc)
 	err = bp.cli.Create(ctx, &ingressSA)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Ingress ServiceAccount %q: %v", nsMC.GetName(), err)
+		log.Infof("Failed to create Ingress ServiceAccount %s.%s: %v",
+			ingressSA.GetName(), ingressSA.GetNamespace(), err)
 		return err
 	}
-	log.Infof("Created Ingress Service Account %q", ingressSA.GetName())
+	if err == nil {
+		log.Infof("Created Ingress Service Account %q", ingressSA.GetName())
+	}
 
-	ingressDeployment := boundaryProtectionIngressDeployment(mfc.GetName(),
-		nsMC.GetName(), mfc.Spec.IngressGatewaySelector, &ingressSA)
+	ingressDeployment := boundaryProtectionIngressDeployment(mfc.GetName()+"-ingressgateway",
+		targetNamespace, mfc.Spec.IngressGatewaySelector, &ingressSA, secret, mfc)
 	err = bp.cli.Create(ctx, &ingressDeployment)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Ingress Deployment %q: %v", nsMC.GetName(), err)
+		log.Infof("Failed to create Ingress Deployment %s.%s: %v",
+			ingressDeployment.GetName(), ingressDeployment.GetNamespace(), err)
 		return err
 	}
-	log.Infof("Created Ingress Deployment %q", ingressDeployment.GetName())
+	if err == nil {
+		log.Infof("Created Ingress Deployment %q", ingressDeployment.GetName())
+	}
 
 	return nil
 }
 
 // Implements Vadim-style
 func (bp *bounderyProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
-
-	// TODO: Use K8s ownerReference to eliminate the need to explicitly code this
-
-	nsMC := corev1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Namespace",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("istio-%s", mfc.GetName()),
-		},
-	}
-
-	err := bp.cli.Delete(ctx, &nsMC)
-	if err == nil {
-		log.Infof("Deleted Namespace %q", nsMC.GetName())
-	} else if !mfutil.ErrorNotFound(err) {
-		log.Infof("Failed to delete Namespace %q: %v", nsMC.GetName(), err)
-	}
-
-	return err
+	return nil
 }
 
 // Implements Vadim-style
@@ -298,28 +302,18 @@ func (bp *bounderyProtection) RemoveServiceBinding(ctx context.Context, sb *mmv1
 	// return fmt.Errorf("Unimplemented - service binding delete")
 }
 
-func boundaryProtectionNamespace(name string) corev1.Namespace {
-	return corev1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Namespace",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("istio-%s", name),
-		},
-	}
-}
-
 // TODO We currently hard-code this Service rather than using Istio Operator to create
 // one congruent with user's Istio installation.  We should use Operator, but it is
 // not set up to create an ingress/egress w/o control plane
-func boundaryProtectionEgressService(name, namespace string, port int32, selector map[string]string) corev1.Service {
+func boundaryProtectionEgressService(name, namespace string, port int32, selector map[string]string, owner *mmv1.MeshFedConfig) corev1.Service {
 	return corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("istio-%s-egress-%d", name, port),
-			Namespace: namespace,
+			Name:            fmt.Sprintf("istio-%s-egress-%d", name, port),
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -338,14 +332,15 @@ func boundaryProtectionEgressService(name, namespace string, port int32, selecto
 // TODO We currently hard-code this Service rather than using Istio Operator to create
 // one congruent with user's Istio installation.  We should use Operator, but it is
 // not set up to create an ingress/egress w/o control plane
-func boundaryProtectionIngressService(name, namespace string, port int32, selector map[string]string) corev1.Service {
+func boundaryProtectionIngressService(name, namespace string, port int32, selector map[string]string, owner *mmv1.MeshFedConfig) corev1.Service {
 	return corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("istio-%s-ingress-%d", name, port),
-			Namespace: namespace,
+			Name:            fmt.Sprintf("istio-%s-ingress-%d", name, port),
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
@@ -381,27 +376,28 @@ func boundaryProtectionIngressService(name, namespace string, port int32, select
 // TODO We currently hard-code this ServiceAccount rather than using Istio Operator to create
 // one congruent with user's Istio installation.  We should use Operator, but it is
 // not set up to create an ingress/egress w/o control plane
-func boundaryProtectionEgressServiceAccount(name, namespace string) corev1.ServiceAccount {
+func boundaryProtectionEgressServiceAccount(name, namespace string, owner *mmv1.MeshFedConfig) corev1.ServiceAccount {
 	return boundaryProtectionXServiceAccount(fmt.Sprintf("istio-%s-egressgateway-service-account", name),
-		namespace)
+		namespace, owner)
 }
 
 // TODO We currently hard-code this ServiceAccount rather than using Istio Operator to create
 // one congruent with user's Istio installation.  We should use Operator, but it is
 // not set up to create an ingress/egress w/o control plane
-func boundaryProtectionIngressServiceAccount(name, namespace string) corev1.ServiceAccount {
+func boundaryProtectionIngressServiceAccount(name, namespace string, owner *mmv1.MeshFedConfig) corev1.ServiceAccount {
 	return boundaryProtectionXServiceAccount(fmt.Sprintf("istio-%s-ingressgateway-service-account", name),
-		namespace)
+		namespace, owner)
 }
 
-func boundaryProtectionXServiceAccount(name, namespace string) corev1.ServiceAccount {
+func boundaryProtectionXServiceAccount(name, namespace string, owner *mmv1.MeshFedConfig) corev1.ServiceAccount {
 	return corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ServiceAccount",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:            name,
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
 		},
 	}
 }
@@ -409,16 +405,17 @@ func boundaryProtectionXServiceAccount(name, namespace string) corev1.ServiceAcc
 // TODO We currently hard-code this Deployment rather than using Istio Operator to create
 // one congruent with user's Istio installation.  We should use Operator, but it is
 // not set up to create an ingress/egress w/o control plane
-func boundaryProtectionEgressDeployment(name, namespace string, labels map[string]string, sa *corev1.ServiceAccount) appsv1.Deployment {
+func boundaryProtectionEgressDeployment(name, namespace string, labels map[string]string, sa *corev1.ServiceAccount, secretName string, owner *mmv1.MeshFedConfig) appsv1.Deployment {
 
 	return appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:            name,
+			Namespace:       namespace,
+			Labels:          labels,
+			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -446,14 +443,9 @@ func boundaryProtectionEgressDeployment(name, namespace string, labels map[strin
 									MountPath: "/etc/certs",
 								},
 								{
-									Name:      "c1-example-com-certs",
+									Name:      "mesh-certs",
 									ReadOnly:  true,
-									MountPath: "/etc/istio/c1.example.com/certs",
-								},
-								{
-									Name:      "c1-trusted-certs",
-									ReadOnly:  true,
-									MountPath: "/etc/istio/example.com/certs",
+									MountPath: "/etc/istio/mesh/certs",
 								},
 							},
 						},
@@ -470,20 +462,10 @@ func boundaryProtectionEgressDeployment(name, namespace string, labels map[strin
 							},
 						},
 						{
-							Name: "c1-example-com-certs",
+							Name: "mesh-certs",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName:  "c1-example-com-certs",
-									Optional:    pbool(true),
-									DefaultMode: pint32(420),
-								},
-							},
-						},
-						{
-							Name: "c1-trusted-certs",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName:  "c1-trusted-certs",
+									SecretName:  secretName,
 									Optional:    pbool(true),
 									DefaultMode: pint32(420),
 								},
@@ -499,16 +481,17 @@ func boundaryProtectionEgressDeployment(name, namespace string, labels map[strin
 // TODO We currently hard-code this Deployment rather than using Istio Operator to create
 // one congruent with user's Istio installation.  We should use Operator, but it is
 // not set up to create an ingress/egress w/o control plane
-func boundaryProtectionIngressDeployment(name, namespace string, labels map[string]string, sa *corev1.ServiceAccount) appsv1.Deployment {
+func boundaryProtectionIngressDeployment(name, namespace string, labels map[string]string, sa *corev1.ServiceAccount, secretName string, owner *mmv1.MeshFedConfig) appsv1.Deployment {
 
 	return appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
+			Name:            name,
+			Namespace:       namespace,
+			Labels:          labels,
+			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -536,14 +519,9 @@ func boundaryProtectionIngressDeployment(name, namespace string, labels map[stri
 									MountPath: "/etc/certs",
 								},
 								{
-									Name:      "c1-example-com-certs",
+									Name:      "mesh-certs",
 									ReadOnly:  true,
-									MountPath: "/etc/istio/c1.example.com/certs",
-								},
-								{
-									Name:      "c1-trusted-certs",
-									ReadOnly:  true,
-									MountPath: "/etc/istio/example.com/certs",
+									MountPath: "/etc/istio/mesh/certs",
 								},
 							},
 						},
@@ -560,20 +538,10 @@ func boundaryProtectionIngressDeployment(name, namespace string, labels map[stri
 							},
 						},
 						{
-							Name: "c1-example-com-certs",
+							Name: "mesh-certs",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName:  "c1-example-com-certs",
-									Optional:    pbool(true),
-									DefaultMode: pint32(420),
-								},
-							},
-						},
-						{
-							Name: "c1-trusted-certs",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName:  "c1-trusted-certs",
+									SecretName:  secretName,
 									Optional:    pbool(true),
 									DefaultMode: pint32(420),
 								},
@@ -680,5 +648,33 @@ func boundaryProtectionPodEnv(labels map[string]string, workload string) []corev
 		- name: ISTIO_META_OWNER
 			value: kubernetes://api/apps/v1/namespaces/istio-private-gateways/deployments/istio-private-egressgateway
 		*/
+	}
+}
+
+func getSecretName(ctx context.Context, mfc *mmv1.MeshFedConfig, cli client.Reader) (string, error) {
+	var matches corev1.SecretList
+	err := cli.List(ctx, &matches, &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(mfc.Spec.TlsContextSelector),
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(matches.Items) == 0 {
+		return "", fmt.Errorf("No secrets match %v", mfc.Spec.TlsContextSelector)
+	}
+	if len(matches.Items) > 1 {
+		return "", fmt.Errorf("Ambiguous: %d secrets match %v", len(matches.Items), mfc.Spec.TlsContextSelector)
+	}
+	return matches.Items[0].GetName(), nil
+}
+
+func ownerReference(apiVersion, kind string, owner metav1.ObjectMeta) []metav1.OwnerReference {
+	return []metav1.OwnerReference{
+		{
+			APIVersion: apiVersion,
+			Kind:       kind,
+			Name:       owner.GetName(),
+			UID:        owner.GetUID(),
+		},
 	}
 }
