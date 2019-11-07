@@ -29,8 +29,8 @@ To start, do `make run`.  TODO We need to do this twice, once for each cluster, 
 To test, we first need to tell the system what kind of security to implement:
 
 ``` bash
-kubectl --context $CLUSTER1 apply -f samples/limited-trust-c1.yaml
-kubectl --context $CLUSTER2 apply -f samples/limited-trust-c2.yaml
+kubectl --context $CLUSTER1 apply -f samples/limited-trust-c1.yaml,samples/secret-c1.yaml
+kubectl --context $CLUSTER2 apply -f samples/limited-trust-c2.yaml,samples/secret-c2.yaml
 ```
 
 By applying these MeshFedConfigs, the mc2019 system creates a namespace, an ingress and an egress service.
