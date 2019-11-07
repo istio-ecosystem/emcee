@@ -52,10 +52,10 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 	mfc, err := GetMeshFedConfig(ctx, r.Client, mfcSelector)
 	if (err != nil) || (mfc.ObjectMeta.Name == "") {
 		if exposition.ObjectMeta.DeletionTimestamp.IsZero() {
-			log.Warnf("SE did not find an mfc. will requeue the request: %v", err)
+			// log.Warnf("SE did not find an mfc. will requeue the request: %v", err)
 			return ctrl.Result{Requeue: true}, nil
 		} else {
-			log.Warnf("SE did not find an mfc. being deleted. not requeueing: %v", err)
+			// log.Warnf("SE did not find an mfc. being deleted. not requeueing: %v", err)
 			exposition.ObjectMeta.Finalizers = removeString(exposition.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(context.Background(), &exposition); err != nil {
 				return ctrl.Result{}, err

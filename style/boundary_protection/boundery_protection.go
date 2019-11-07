@@ -264,7 +264,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 		},
 	}
 	if _, err := mfutil.CreateIstioVirtualService(bp.istioCli, name, namespace, vs, se.GetUID()); err != nil {
-		mfutil.DeleteIstioGateway(bp.istioCli, name, namespace)
+		// mfutil.DeleteIstioGateway(bp.istioCli, name, namespace)
 		return err
 	}
 
