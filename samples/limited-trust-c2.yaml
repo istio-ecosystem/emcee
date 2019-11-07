@@ -2,6 +2,8 @@ apiVersion: mm.ibm.istio.io/v1
 kind: MeshFedConfig
 metadata:
   name: limited-trust
+  labels:
+     fed-config: limited-trust
 spec:
   tls_context_selector:
     mesh: limited-trust

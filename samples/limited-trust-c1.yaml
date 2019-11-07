@@ -3,6 +3,8 @@ kind: MeshFedConfig
 metadata:
   name: limited-trust
   secret: cluster1
+  labels:
+     fed-config: limited-trust
 spec:
   tls_context_selector:
     mesh: limited-trust
