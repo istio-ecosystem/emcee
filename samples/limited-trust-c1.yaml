@@ -6,6 +6,7 @@ metadata:
   secret: cluster1
   labels:
     secret: cluster1
+    fed-config: limited-trust
 spec:
   tls_context_selector:
     mesh: limited-trust

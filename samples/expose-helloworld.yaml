@@ -1,0 +1,9 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: ServiceExposition
+metadata:
+  name: se1
+spec:
+  mesh_fed_config_selector:
+    fed-config: limited-trust
+  name:	helloworld
+  port:	5000
