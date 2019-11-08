@@ -22,7 +22,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -198,9 +197,9 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 						Hosts: []string{"*"},
 						Tls: &istiov1alpha3.Server_TLSOptions{
 							Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
-							ServerCertificate: "/etc/istio/certs/tls.crt",
-							PrivateKey:        "/etc/istio/certs/tls.key",
-							CaCertificates:    "/etc/istio/certs/example.com.crt",
+							ServerCertificate: "/etc/istio/mesh/certs/tls.crt",
+							PrivateKey:        "/etc/istio/mesh/certs/tls.key",
+							CaCertificates:    "/etc/istio/mesh/certs/example.com.crt",
 						},
 					},
 				},
