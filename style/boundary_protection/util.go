@@ -5,3 +5,7 @@
 // Copyright 2019 IBM Corporation
 
 package boundary_protection
+
+const (
+	CERT_DIR = "/etc/istio/mesh/certs/"
+)

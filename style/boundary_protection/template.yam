@@ -44,10 +44,8 @@ spec:
           number: 9080                                  # <--
         subset: v1                                      # <-- 
         host: myratings.bookinfo.svc.cluster.local      # <--
-
-
+---
 ## CONSUME
-
 kind: Service
 apiVersion: v1
 metadata:
@@ -57,5 +55,77 @@ spec:
   - protocol: TCP
     port: 15443
     name: tls-for-cross-cluster-communication
+---
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: c2-example-com
+subsets:
+  - addresses:
+    - ip: $CLUSTER2_INGRESS_HOST
+    ports:
+    - port: 15443
+      name: tls-for-cross-cluster-communication
 
-
+---
+# $ kubectl apply --context=$CTX_CLUSTER1 -n istio-private-gateways -f - <<EOF
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: c2-example-com
+spec:
+  host: c2-example-com
+  exportTo:
+  - "."
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    portLevelSettings:
+    - port:
+        number: 15443
+      tls:
+        mode: MUTUAL
+        clientCertificate: /etc/istio/c1.example.com/certs/tls.crt
+        privateKey: /etc/istio/c1.example.com/certs/tls.key
+        caCertificates: /etc/istio/example.com/certs/example.com.crt
+        sni: c2.example.com
+---
+## RESULTS
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  creationTimestamp: "2019-11-08T13:58:32Z"
+  generation: 1
+  name: se1
+  namespace: default
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    controller: true
+    kind: MeshFedConfig
+    name: se1
+    uid: d95e0132-022f-11ea-b4af-be86e25f53fd
+  resourceVersion: "50459935"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/default/virtualservices/se1
+  uid: d97b51ea-022f-11ea-b4af-be86e25f53fd
+spec:
+  gateways:
+  - se1
+  hosts:
+  - '*'
+  http:
+  - match:
+    - uri:
+        prefix: default/se1
+    name: route-se1
+    rewrite:
+      authority: se1.default.svc.cluster.local
+      uri: /
+    route:
+    - destination:
+        host: se1.default.svc.cluster.local
+        port:
+          number: 5000

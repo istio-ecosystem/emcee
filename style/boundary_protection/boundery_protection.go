@@ -167,39 +167,29 @@ func (bp *bounderyProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1
 
 // Implements Vadim-style
 func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
-	// if len(mfc.Spec.TlsContextSelector) == 0 {
-	// 	return fmt.Errorf("Unimplemented. tls selector is not specified. Currently this is not supported.")
-	// } else {
-	// 	tlsSelector := mfc.Spec.TlsContextSelector
-	// 	if tls, err := mfutil.GetTlsSecret(ctx, bp.cli, tlsSelector); err != nil {
-	// 		return err
-	// 	} else {
-	// 		log.Infof("Retrieved the tls info: %v", tls)
-	// 	}
-	// }
 
 	// Create an Istio Gateway
-	if mfc.Spec.UseEgressGateway {
-		egressGatewayPort := mfc.Spec.EgressGatewayPort
-		if egressGatewayPort == 0 {
-			egressGatewayPort = mfutil.DefaultGatewayPort
+	if mfc.Spec.UseIngressGateway {
+		ingressGatewayPort := mfc.Spec.IngressGatewayPort
+		if ingressGatewayPort == 0 {
+			ingressGatewayPort = mfutil.DefaultGatewayPort
 		}
-		if len(mfc.Spec.EgressGatewaySelector) != 0 {
+		if len(mfc.Spec.IngressGatewaySelector) != 0 {
 			gateway := istiov1alpha3.Gateway{
-				Selector: mfc.Spec.EgressGatewaySelector,
+				Selector: mfc.Spec.IngressGatewaySelector,
 				Servers: []*istiov1alpha3.Server{
 					{
 						Port: &istiov1alpha3.Port{
-							Number:   egressGatewayPort,
+							Number:   ingressGatewayPort,
 							Name:     "https-meshfed-port",
 							Protocol: "HTTPS",
 						},
 						Hosts: []string{"*"},
 						Tls: &istiov1alpha3.Server_TLSOptions{
 							Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
-							ServerCertificate: "/etc/istio/mesh/certs/tls.crt",
-							PrivateKey:        "/etc/istio/mesh/certs/tls.key",
-							CaCertificates:    "/etc/istio/mesh/certs/example.com.crt",
+							ServerCertificate: CERT_DIR + "tls.crt",
+							PrivateKey:        CERT_DIR + "tls.key",
+							CaCertificates:    CERT_DIR + "example.com.crt",
 						},
 					},
 				},
@@ -213,14 +203,15 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 			return fmt.Errorf("unimplemented. Gateway proxy is not specified. Currently this is not supported.")
 		}
 	} else {
-		// We should never get here. Boundry implementation is with egress gateway always.
-		return fmt.Errorf("Boundry implementation requires egress gateway")
+		// We should never get here. Boundry implementation is with ingress gateway always.
+		return fmt.Errorf("Boundry implementation requires ingress gateway")
 	}
 
 	// Create an Istio Virtual Service
 	name := se.GetName()
 	namespace := se.GetNamespace()
-	fullname := name + "." + namespace + DEFAULT_PREFIX
+	serviceName := se.Spec.Name
+	fullname := serviceName + "." + namespace + DEFAULT_PREFIX
 	vs := istiov1alpha3.VirtualService{
 		Hosts: []string{
 			"*",
@@ -234,7 +225,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 				Match: []*istiov1alpha3.HTTPMatchRequest{
 					{
 						Uri: &istiov1alpha3.StringMatch{
-							MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: namespace + "/" + name}, // <--
+							MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: namespace + "/" + serviceName},
 						},
 					},
 				},
