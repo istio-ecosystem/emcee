@@ -7,5 +7,12 @@
 package boundary_protection
 
 const (
-	CERT_DIR = "/etc/istio/mesh/certs/"
+	certificatesDir    = "/etc/istio/mesh/certs/"
+	defaultGatewayPort = uint32(15443)
+)
+
+var (
+	defaultIngressGatewaySelector = map[string]string{
+		"istio": "ingressgateway",
+	}
 )

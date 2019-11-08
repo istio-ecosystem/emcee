@@ -31,8 +31,7 @@ import (
 )
 
 const (
-	MeshFedVersion     = "mm.ibm.istio.io/v1"
-	DefaultGatewayPort = uint32(15443)
+	MeshFedVersion = "mm.ibm.istio.io/v1"
 )
 
 func IgnoreNotFound(err error) error {

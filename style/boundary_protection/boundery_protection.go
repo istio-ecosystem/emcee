@@ -39,7 +39,7 @@ var (
 )
 
 const (
-	DEFAULT_PREFIX = ".svc.cluster.local"
+	defaultPrefix = ".svc.cluster.local"
 )
 
 // NewBoundaryProtectionMeshFedConfig creates a "Boundary Protection" style implementation for handling MeshFedConfig
@@ -137,9 +137,7 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 
 	// If mfc.Spec.IngressGatewaySelector is empty, default it
 	if len(mfc.Spec.IngressGatewaySelector) == 0 {
-		mfc.Spec.IngressGatewaySelector = map[string]string{
-			"istio": "ingressgateway",
-		}
+		mfc.Spec.IngressGatewaySelector = defaultIngressGatewaySelector
 		log.Infof("MeshFedConfig did not specify an ingress workload, using %v", mfc.Spec.IngressGatewaySelector)
 		// TODO?: persist this change
 	}
@@ -172,35 +170,35 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 	if mfc.Spec.UseIngressGateway {
 		ingressGatewayPort := mfc.Spec.IngressGatewayPort
 		if ingressGatewayPort == 0 {
-			ingressGatewayPort = mfutil.DefaultGatewayPort
+			ingressGatewayPort = defaultGatewayPort
 		}
+
+		ingressSelector := defaultIngressGatewaySelector
 		if len(mfc.Spec.IngressGatewaySelector) != 0 {
-			gateway := istiov1alpha3.Gateway{
-				Selector: mfc.Spec.IngressGatewaySelector,
-				Servers: []*istiov1alpha3.Server{
-					{
-						Port: &istiov1alpha3.Port{
-							Number:   ingressGatewayPort,
-							Name:     "https-meshfed-port",
-							Protocol: "HTTPS",
-						},
-						Hosts: []string{"*"},
-						Tls: &istiov1alpha3.Server_TLSOptions{
-							Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
-							ServerCertificate: CERT_DIR + "tls.crt",
-							PrivateKey:        CERT_DIR + "tls.key",
-							CaCertificates:    CERT_DIR + "example.com.crt",
-						},
+			ingressSelector = mfc.Spec.IngressGatewaySelector
+		}
+
+		gateway := istiov1alpha3.Gateway{
+			Selector: ingressSelector,
+			Servers: []*istiov1alpha3.Server{
+				{
+					Port: &istiov1alpha3.Port{
+						Number:   ingressGatewayPort,
+						Name:     "https-meshfed-port",
+						Protocol: "HTTPS",
+					},
+					Hosts: []string{"*"},
+					Tls: &istiov1alpha3.Server_TLSOptions{
+						Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
+						ServerCertificate: certificatesDir + "tls.crt",
+						PrivateKey:        certificatesDir + "tls.key",
+						CaCertificates:    certificatesDir + "example.com.crt",
 					},
 				},
-			}
-			if _, err := mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), se.GetNamespace(), gateway, se.GetUID()); err != nil {
-				return err
-			}
-		} else {
-			// use an existing gateway
-			// TODO
-			return fmt.Errorf("unimplemented. Gateway proxy is not specified. Currently this is not supported.")
+			},
+		}
+		if _, err := mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), se.GetNamespace(), gateway, se.GetUID()); err != nil {
+			return err
 		}
 	} else {
 		// We should never get here. Boundry implementation is with ingress gateway always.
@@ -211,7 +209,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 	name := se.GetName()
 	namespace := se.GetNamespace()
 	serviceName := se.Spec.Name
-	fullname := serviceName + "." + namespace + DEFAULT_PREFIX
+	fullname := serviceName + "." + namespace + defaultPrefix
 	vs := istiov1alpha3.VirtualService{
 		Hosts: []string{
 			"*",
@@ -252,8 +250,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 		return err
 	}
 
-	// TODO: Get the gateway endpoints
-	eps, err := mfutil.GetIngressEndpoints(ctx, bp.cli, mfc.GetName(), mfc.GetNamespace(), mfutil.DefaultGatewayPort)
+	eps, err := mfutil.GetIngressEndpoints(ctx, bp.cli, mfc.GetName(), mfc.GetNamespace(), defaultGatewayPort)
 	if err != nil {
 		log.Warnf("could not get endpoints %v %v", eps, err)
 		return err
