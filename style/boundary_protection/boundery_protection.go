@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -97,31 +98,26 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 		log.Infof("Created Egress Service %s.%s", egressSvc.GetName(), egressSvc.GetNamespace())
 	}
 
-	// TODO: If mfc.Spec.EgressGatewaySelector is empty, default it
-	// TODO: If mfc.Spec.EgressGatewaySelector matches a workload, skip creation of SA and Deployment
-
-	egressSA := boundaryProtectionEgressServiceAccount(mfc.GetName(),
-		targetNamespace, mfc)
-	err = bp.cli.Create(ctx, &egressSA)
-	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Egress ServiceAccount %s.%s: %v",
-			egressSA.GetName(), egressSA.GetNamespace(), err)
-		return err
-	}
-	if err == nil {
-		log.Infof("Created Egress Service Account %s.%s", egressSA.GetName(), egressSA.GetNamespace())
+	// If mfc.Spec.EgressGatewaySelector is empty, default it
+	if len(mfc.Spec.EgressGatewaySelector) == 0 {
+		mfc.Spec.EgressGatewaySelector = map[string]string{
+			"istio": "egressgateway",
+		}
+		log.Infof("MeshFedConfig did not specify an egress workload, using %v", mfc.Spec.EgressGatewaySelector)
+		// TODO?: persist this change
 	}
 
-	egressDeployment := boundaryProtectionEgressDeployment(mfc.GetName()+"-egressgateway",
-		targetNamespace, mfc.Spec.EgressGatewaySelector, &egressSA, secret, mfc)
-	err = bp.cli.Create(ctx, &egressDeployment)
-	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Egress Deployment %s.%s: %v",
-			egressDeployment.GetName(), egressDeployment.GetNamespace(), err)
+	nEgressPod, err := bp.workloadMatches(ctx, targetNamespace, labels.SelectorFromSet(mfc.Spec.EgressGatewaySelector))
+	if err != nil {
+		log.Infof("Failed to list existing Egress pods: %v", err)
 		return err
 	}
-	if err == nil {
-		log.Infof("Created Egress Deployment %s.%s", egressDeployment.GetName(), egressDeployment.GetNamespace())
+	if nEgressPod == 0 {
+		err = bp.createEgressDeployment(ctx, mfc, targetNamespace, secret)
+		if err != nil {
+			log.Infof("Could not create Egress deployment: %v", err)
+			return err
+		}
 	}
 
 	// Create Ingress Service if it doesn't already exist
@@ -137,34 +133,29 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 		return err
 	}
 	if err == nil {
-		log.Infof("Created Ingress %q", ingressSvc.GetName())
+		log.Infof("Created Ingress Service %s.%s", ingressSvc.GetName(), ingressSvc.GetNamespace())
 	}
 
-	// TODO: If mfc.Spec.IngressGatewaySelector is empty, default it
-	// TODO: If mfc.Spec.IngressGatewaySelector matches a workload, skip creation of SA and Deployment
+	// If mfc.Spec.IngressGatewaySelector is empty, default it
+	if len(mfc.Spec.IngressGatewaySelector) == 0 {
+		mfc.Spec.IngressGatewaySelector = map[string]string{
+			"istio": "ingressgateway",
+		}
+		log.Infof("MeshFedConfig did not specify an ingress workload, using %v", mfc.Spec.IngressGatewaySelector)
+		// TODO?: persist this change
+	}
 
-	ingressSA := boundaryProtectionIngressServiceAccount(mfc.GetName()+"-ingressgateway",
-		targetNamespace, mfc)
-	err = bp.cli.Create(ctx, &ingressSA)
-	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Ingress ServiceAccount %s.%s: %v",
-			ingressSA.GetName(), ingressSA.GetNamespace(), err)
+	nIngressPod, err := bp.workloadMatches(ctx, targetNamespace, labels.SelectorFromSet(mfc.Spec.IngressGatewaySelector))
+	if err != nil {
+		log.Infof("Failed to list existing Ingress pods: %v", err)
 		return err
 	}
-	if err == nil {
-		log.Infof("Created Ingress Service Account %q", ingressSA.GetName())
-	}
-
-	ingressDeployment := boundaryProtectionIngressDeployment(mfc.GetName()+"-ingressgateway",
-		targetNamespace, mfc.Spec.IngressGatewaySelector, &ingressSA, secret, mfc)
-	err = bp.cli.Create(ctx, &ingressDeployment)
-	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create Ingress Deployment %s.%s: %v",
-			ingressDeployment.GetName(), ingressDeployment.GetNamespace(), err)
-		return err
-	}
-	if err == nil {
-		log.Infof("Created Ingress Deployment %q", ingressDeployment.GetName())
+	if nIngressPod == 0 {
+		err = bp.createIngressDeployment(ctx, mfc, targetNamespace, secret)
+		if err != nil {
+			log.Infof("Could not create Ingress deployment: %v", err)
+			return err
+		}
 	}
 
 	return nil
@@ -678,4 +669,71 @@ func ownerReference(apiVersion, kind string, owner metav1.ObjectMeta) []metav1.O
 			UID:        owner.GetUID(),
 		},
 	}
+}
+
+func (bp *bounderyProtection) workloadMatches(ctx context.Context, namespace string, selector labels.Selector) (int, error) {
+	var matches corev1.PodList
+	err := bp.cli.List(ctx, &matches, &client.ListOptions{
+		Namespace:     namespace,
+		LabelSelector: selector,
+	})
+	if err != nil {
+		return 0, err
+	}
+	// TODO exclude terminating pods from this count?
+	return len(matches.Items), nil
+}
+
+func (bp *bounderyProtection) createEgressDeployment(ctx context.Context, mfc *mmv1.MeshFedConfig, targetNamespace, secret string) error {
+	egressSA := boundaryProtectionEgressServiceAccount(mfc.GetName(),
+		targetNamespace, mfc)
+	err := bp.cli.Create(ctx, &egressSA)
+	if err != nil && !mfutil.ErrorAlreadyExists(err) {
+		log.Infof("Failed to create Egress ServiceAccount %s.%s: %v",
+			egressSA.GetName(), egressSA.GetNamespace(), err)
+		return err
+	}
+	if err == nil {
+		log.Infof("Created Egress Service Account %s.%s", egressSA.GetName(), egressSA.GetNamespace())
+	}
+
+	egressDeployment := boundaryProtectionEgressDeployment(mfc.GetName()+"-egressgateway",
+		targetNamespace, mfc.Spec.EgressGatewaySelector, &egressSA, secret, mfc)
+	err = bp.cli.Create(ctx, &egressDeployment)
+	if err != nil && !mfutil.ErrorAlreadyExists(err) {
+		log.Infof("Failed to create Egress Deployment %s.%s: %v",
+			egressDeployment.GetName(), egressDeployment.GetNamespace(), err)
+		return err
+	}
+	if err == nil {
+		log.Infof("Created Egress Deployment %s.%s", egressDeployment.GetName(), egressDeployment.GetNamespace())
+	}
+	return err
+}
+
+func (bp *bounderyProtection) createIngressDeployment(ctx context.Context, mfc *mmv1.MeshFedConfig, targetNamespace, secret string) error {
+	ingressSA := boundaryProtectionIngressServiceAccount(mfc.GetName()+"-ingressgateway",
+		targetNamespace, mfc)
+	err := bp.cli.Create(ctx, &ingressSA)
+	if err != nil && !mfutil.ErrorAlreadyExists(err) {
+		log.Infof("Failed to create Ingress ServiceAccount %s.%s: %v",
+			ingressSA.GetName(), ingressSA.GetNamespace(), err)
+		return err
+	}
+	if err == nil {
+		log.Infof("Created Ingress Service Account %q", ingressSA.GetName())
+	}
+
+	ingressDeployment := boundaryProtectionIngressDeployment(mfc.GetName()+"-ingressgateway",
+		targetNamespace, mfc.Spec.IngressGatewaySelector, &ingressSA, secret, mfc)
+	err = bp.cli.Create(ctx, &ingressDeployment)
+	if err != nil && !mfutil.ErrorAlreadyExists(err) {
+		log.Infof("Failed to create Ingress Deployment %s.%s: %v",
+			ingressDeployment.GetName(), ingressDeployment.GetNamespace(), err)
+		return err
+	}
+	if err == nil {
+		log.Infof("Created Ingress Deployment %q", ingressDeployment.GetName())
+	}
+	return err
 }
