@@ -276,15 +276,11 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 
 	// See https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/http#consume-helloworld-v2-in-the-first-cluster
 
-	mfc, err := bp.getMeshFedConfig(ctx, labels.SelectorFromSet(sb.Spec.MeshFedConfigSelector))
-	if err != nil {
-		return err
-	}
 	targetNamespace := mfc.GetNamespace()
 
 	// Create a Kubernetes service for the remote Ingress, if needed
 	svcRemoteCluster := boundaryProtectionRemoteIngressService(targetNamespace, mfc)
-	err = bp.cli.Create(ctx, &svcRemoteCluster)
+	err := bp.cli.Create(ctx, &svcRemoteCluster)
 	if logAndCheckExist(err, "Remote Cluster ingress Service", renderName(&svcRemoteCluster.ObjectMeta)) {
 		return err
 	}
@@ -784,23 +780,6 @@ func (bp *bounderyProtection) createIngressDeployment(ctx context.Context, mfc *
 		log.Infof("Created Ingress Deployment %q", ingressDeployment.GetName())
 	}
 	return err
-}
-
-func (bp *bounderyProtection) getMeshFedConfig(ctx context.Context, selector labels.Selector) (*mmv1.MeshFedConfig, error) {
-	var matches mmv1.MeshFedConfigList
-	err := bp.cli.List(ctx, &matches, &client.ListOptions{
-		LabelSelector: selector,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(matches.Items) == 0 {
-		return nil, fmt.Errorf("No MeshFedConfigs match %v", selector)
-	}
-	if len(matches.Items) > 1 {
-		return nil, fmt.Errorf("Ambiguous: %d MeshFedConfigs match %v", len(matches.Items), selector)
-	}
-	return &matches.Items[0], nil
 }
 
 func boundaryProtectionRemoteIngressService(namespace string, owner *mmv1.MeshFedConfig) corev1.Service {
