@@ -225,7 +225,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 				Match: []*istiov1alpha3.HTTPMatchRequest{
 					{
 						Uri: &istiov1alpha3.StringMatch{
-							MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: namespace + "/" + serviceName},
+							MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: "/" + namespace + "/" + serviceName},
 						},
 					},
 				},
