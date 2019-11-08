@@ -1,0 +1,19 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: ServiceBinding
+metadata:
+  name: helloworld
+spec:
+  name: helloworld
+  mesh_fed_config_selector:
+    fed-config: limited-trust
+  # optional
+  # alias: some-other-name
+  # optional
+  # subset: v2
+  # optional
+  # port: 5000
+  # optional TODO do we need this?
+  # namespace:
+  # don't use, apparently already filled in for binding
+  # endpoints:
+  # - "???"

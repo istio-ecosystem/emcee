@@ -24,6 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 )
 
 type bounderyProtection struct {
@@ -271,8 +273,63 @@ func (bp *bounderyProtection) RemoveServiceExposure(ctx context.Context, se *mmv
 
 // Implements Vadim-style
 func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
+
+	// See https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/http#consume-helloworld-v2-in-the-first-cluster
+
+	targetNamespace := mfc.GetNamespace()
+
+	// Create a Kubernetes service for the remote Ingress, if needed
+	svcRemoteCluster := boundaryProtectionRemoteIngressService(targetNamespace, mfc)
+	err := bp.cli.Create(ctx, &svcRemoteCluster)
+	if logAndCheckExist(err, "Remote Cluster ingress Service", renderName(&svcRemoteCluster.ObjectMeta)) {
+		return err
+	}
+
+	// Create an Istio destination rule for the remote Ingress, if needed
+	drRemoteCluster := boundaryProtectionRemoteDestinationRule(targetNamespace, mfc)
+	_, err = bp.istioCli.NetworkingV1alpha3().DestinationRules(targetNamespace).Create(&drRemoteCluster)
+	if logAndCheckExist(err, "Remote Cluster DestinationRule", renderName(&svcRemoteCluster.ObjectMeta)) {
+		return err
+	}
+
+	svcLocalFacade := boundaryProtectionLocalServiceFacade(targetNamespace, sb)
+	err = bp.cli.Create(ctx, &svcLocalFacade)
+	if logAndCheckExist(err, "Local Service facade Service", renderName(&svcLocalFacade.ObjectMeta)) {
+		return err
+	}
+
+	comboName := "hw-c2" // TODO This combines the service and Ingress name, do we have an algorithm to generate?
+	svcLocalEgress := boundaryProtectionLocalServiceEgress(comboName, targetNamespace, sb)
+	err = bp.cli.Create(ctx, &svcLocalEgress)
+	if logAndCheckExist(err, "Local Service egress Service", renderName(&svcLocalEgress.ObjectMeta)) {
+		return err
+	}
+
+	svcLocalGateway := boundaryProtectionLocalServiceGateway(comboName, targetNamespace, sb, mfc)
+	_, err = bp.istioCli.NetworkingV1alpha3().Gateways(targetNamespace).Create(&svcLocalGateway)
+	if logAndCheckExist(err, "Local Service egress Gateway", renderName(&svcLocalGateway.ObjectMeta)) {
+		return err
+	}
+
+	svcLocalDR := boundaryProtectionLocalServiceDestinationRule(comboName, targetNamespace, sb, mfc)
+	_, err = bp.istioCli.NetworkingV1alpha3().DestinationRules(targetNamespace).Create(&svcLocalDR)
+	if logAndCheckExist(err, "Local Service egress DestinationRule", renderName(&svcLocalDR.ObjectMeta)) {
+		return err
+	}
+
+	vsEgressExternal := boundaryProtectionEgressExternalVirtualService(comboName, targetNamespace, sb, mfc)
+	_, err = bp.istioCli.NetworkingV1alpha3().VirtualServices(targetNamespace).Create(&vsEgressExternal)
+	if logAndCheckExist(err, "Local Service departure egress VirtualService", renderName(&vsEgressExternal.ObjectMeta)) {
+		return err
+	}
+
+	vsLocalToEgress := boundaryProtectionLocalToEgressVirtualService(comboName, targetNamespace, sb, mfc)
+	_, err = bp.istioCli.NetworkingV1alpha3().VirtualServices(targetNamespace).Create(&vsLocalToEgress)
+	if logAndCheckExist(err, "Local Service to egress VirtualService", renderName(&vsLocalToEgress.ObjectMeta)) {
+		return err
+	}
+
 	return nil
-	// return fmt.Errorf("Unimplemented")
 }
 
 // Implements Vadim-style
@@ -723,4 +780,294 @@ func (bp *bounderyProtection) createIngressDeployment(ctx context.Context, mfc *
 		log.Infof("Created Ingress Deployment %q", ingressDeployment.GetName())
 	}
 	return err
+}
+
+func boundaryProtectionRemoteIngressService(namespace string, owner *mmv1.MeshFedConfig) corev1.Service {
+	port := 15443 // TODO How do I get this?
+
+	return corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "c2-example-com", // TODO How do I get this?
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
+		},
+		Spec: corev1.ServiceSpec{
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: "9.1.2.3", // TODO How do I get this?
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "tls-for-cross-cluster-communication",
+					Port:       int32(port),
+					TargetPort: intstr.FromInt(int(port)),
+				},
+			},
+		},
+	}
+}
+
+func renderName(om *metav1.ObjectMeta) string {
+	return fmt.Sprintf("%s.%s", om.GetName(), om.GetNamespace())
+}
+
+// boundaryProtectionRemoteDestinationRule returns something like
+// https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/http#consume-helloworld-v2-in-the-first-cluster
+func boundaryProtectionRemoteDestinationRule(namespace string, owner *mmv1.MeshFedConfig) v1alpha3.DestinationRule {
+	return v1alpha3.DestinationRule{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "DestinationRule",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "c2-example-com", // TODO How do I get this?
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
+		},
+		Spec: v1alpha3.DestinationRuleSpec{
+			DestinationRule: istiov1alpha3.DestinationRule{
+				Host:     "c2-example-com", // TODO How do I get this?
+				ExportTo: []string{"."},
+				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
+					PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+						&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+							Port: &istiov1alpha3.PortSelector{
+								Number: 15443,
+							},
+							Tls: &istiov1alpha3.TLSSettings{
+								Mode:              istiov1alpha3.TLSSettings_MUTUAL,
+								ClientCertificate: "/etc/istio/mesh/certs/tls.crt",
+								PrivateKey:        "/etc/istio/mesh/certs/tls.key",
+								CaCertificates:    "/etc/istio/mesh/example.com.crt", // TODO Where do I get this?
+								Sni:               "c2.example.com",                  // TODO Where do I get this?
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// logAndCheckExist returns true if we failed in a bad way
+func logAndCheckExist(err error, title, name string) bool {
+	if err != nil && !mfutil.ErrorAlreadyExists(err) {
+		log.Infof("Failed to create %s %s: %v", title, name, err)
+		return true
+	}
+	if err == nil {
+		log.Infof("Created %s %s", title, name)
+	}
+	return false
+}
+
+func boundaryProtectionLocalServiceFacade(namespace string, sb *mmv1.ServiceBinding) corev1.Service {
+	return corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            boundLocalName(sb),
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       int32(boundLocalPort(sb)),
+					TargetPort: intstr.FromInt(int(boundLocalPort(sb))),
+				},
+			},
+		},
+	}
+}
+
+func boundaryProtectionLocalServiceEgress(gwSvcName, namespace string, sb *mmv1.ServiceBinding) corev1.Service {
+	return corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            gwSvcName,
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					Port: 443,
+				},
+			},
+		},
+	}
+}
+
+func boundaryProtectionLocalServiceGateway(gwSvcName, namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) v1alpha3.Gateway {
+	return v1alpha3.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Gateway",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            fmt.Sprintf("istio-%s-%s", mfc.GetName(), gwSvcName),
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
+		},
+		Spec: v1alpha3.GatewaySpec{
+			Gateway: istiov1alpha3.Gateway{
+				Selector: mfc.Spec.EgressGatewaySelector, // TODO Handle the case where we defaulted this
+				Servers: []*istiov1alpha3.Server{
+					{
+						Port: &istiov1alpha3.Port{
+							Name:     "tls",
+							Number:   443,
+							Protocol: "TLS",
+						},
+						Hosts: []string{
+							fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, namespace),
+						},
+						Tls: &istiov1alpha3.Server_TLSOptions{
+							Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
+							ServerCertificate: "/etc/certs/cert-chain.pem",
+							PrivateKey:        "/etc/certs/key.pem",
+							CaCertificates:    "/etc/certs/root-cert.pem",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func boundaryProtectionLocalServiceDestinationRule(gwSvcName, namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) v1alpha3.DestinationRule {
+	return v1alpha3.DestinationRule{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "DestinationRule",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            fmt.Sprintf("istio-%s", mfc.GetName()),
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
+		},
+		Spec: v1alpha3.DestinationRuleSpec{
+			DestinationRule: istiov1alpha3.DestinationRule{
+				Host: fmt.Sprintf("istio-%s.%s.svc.cluster.local", mfc.GetName(), namespace),
+				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
+					PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+						&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+							Port: &istiov1alpha3.PortSelector{
+								Number: 443,
+							},
+							Tls: &istiov1alpha3.TLSSettings{
+								Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
+								Sni:  fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, namespace),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func boundaryProtectionEgressExternalVirtualService(gwSvcName, namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) v1alpha3.VirtualService {
+	remoteHost := "c2-example-com" // TODO Where does this come from?
+
+	return v1alpha3.VirtualService{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "VirtualService",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            gwSvcName,
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
+		},
+		Spec: v1alpha3.VirtualServiceSpec{
+			VirtualService: istiov1alpha3.VirtualService{
+				Hosts:    []string{fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, namespace)},
+				Gateways: []string{fmt.Sprintf("istio-%s-%s", mfc.GetName(), gwSvcName)},
+				Tcp: []*istiov1alpha3.TCPRoute{
+					{
+						Match: []*istiov1alpha3.L4MatchAttributes{
+							{
+								Port: 443,
+							},
+						},
+						Route: []*istiov1alpha3.RouteDestination{
+							{
+								Destination: &istiov1alpha3.Destination{
+									Host: fmt.Sprintf("%s.%s.svc.cluster.local", remoteHost, namespace),
+									Port: &istiov1alpha3.PortSelector{
+										Number: 15443,
+									},
+									// Skip weight, it should default to 100 if left blank
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func boundLocalName(sb *mmv1.ServiceBinding) string {
+	if sb.Spec.Alias != "" {
+		return sb.Spec.Alias
+	}
+	return sb.Spec.Name
+}
+
+func boundLocalPort(sb *mmv1.ServiceBinding) uint32 {
+	if sb.Spec.Port != 0 {
+		return sb.Spec.Port
+	}
+	return 5000 // TODO Is port mandatory?  If so, check it before calling this method
+}
+
+func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) v1alpha3.VirtualService {
+
+	return v1alpha3.VirtualService{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "VirtualService",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            boundLocalName(sb),
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
+		},
+		Spec: v1alpha3.VirtualServiceSpec{
+			VirtualService: istiov1alpha3.VirtualService{
+				Hosts: []string{boundLocalName(sb)},
+				Http: []*istiov1alpha3.HTTPRoute{
+					{
+						Match: []*istiov1alpha3.HTTPMatchRequest{
+							{
+								Port: boundLocalPort(sb),
+								Uri: &istiov1alpha3.StringMatch{
+									MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: "/"},
+								},
+							},
+						},
+						Rewrite: &istiov1alpha3.HTTPRewrite{
+							Uri: "/sample/helloworld/", // TODO Where do I get this from?
+						},
+						Route: []*istiov1alpha3.HTTPRouteDestination{
+							{
+								Destination: &istiov1alpha3.Destination{
+									Host:   fmt.Sprintf("istio-%s.%s.svc.cluster.local", mfc.GetName(), namespace),
+									Subset: gwSvcName,
+									Port: &istiov1alpha3.PortSelector{
+										Number: 443,
+									},
+									// Skip weight, it should default to 100 if left blank
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
