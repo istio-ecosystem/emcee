@@ -21,7 +21,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -273,13 +272,12 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 	}
 
 	// TODO: Get the gateway endpoints
-	a, b := mfutil.GetIngressEndpoints(ctx, bp.cli, types.NamespacedName{Name: fmt.Sprintf("istio-%s-egress-%d", name, mfutil.DefaultGatewayPort), Namespace: namespace})
-	log.Infof("$$$$$$$$$$$$$$$$$$$$$ %v %v", a, b)
-
-	se.Spec.Endpoints = []string{
-		"yello",
-		"mello",
+	eps, err := mfutil.GetIngressEndpoints(ctx, bp.cli, mfc.GetName(), mfc.GetNamespace(), mfutil.DefaultGatewayPort)
+	if err != nil {
+		log.Warnf("could not get endpoints %v %v", eps, err)
+		return err
 	}
+	se.Spec.Endpoints = eps
 	se.Status.Ready = true
 	if err := bp.cli.Update(ctx, se); err != nil {
 		return err

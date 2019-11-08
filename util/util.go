@@ -156,14 +156,27 @@ func DeleteIstioVirtualService(r istioclient.Interface, name string, namespace s
 	return nil
 }
 
-func GetIngressEndpoints(ctx context.Context, c client.Client, nsn types.NamespacedName) ([]string, error) {
+func GetIngressEndpoints(ctx context.Context, c client.Client, name string, namespace string, port uint32) ([]string, error) {
 	var ingressService corev1.Service
-	if err := c.Get(ctx, nsn, &ingressService); err != nil {
-		log.Infof("XXXXXXXXXXXX %v", ingressService)
-		return []string{"1"}, nil
+	nsn := types.NamespacedName{
+		// TODO: Make a function to make this name and use it everywhere
+		Name:      fmt.Sprintf("istio-%s-ingress-%d", name, port),
+		Namespace: namespace,
 	}
-	log.Infof("YYYYYYYYYYYY %v", ingressService)
-	return []string{"3"}, nil
+
+	if err := c.Get(ctx, nsn, &ingressService); err != nil {
+		log.Warnf("ingress service %v not found with err: %v ", nsn, ingressService)
+		return nil, err
+	}
+	if len(ingressService.Status.LoadBalancer.Ingress) > 0 {
+		var s []string
+		for _, ingress := range ingressService.Status.LoadBalancer.Ingress {
+			s = append(s, fmt.Sprintf("%s:%d", ingress.IP, port))
+		}
+		return s, nil
+	} else {
+		return nil, fmt.Errorf("Did not find a host IP")
+	}
 }
 
 func GetTlsSecret(ctx context.Context, c client.Client, tlsSelector client.MatchingLabels) (corev1.Secret, error) {
