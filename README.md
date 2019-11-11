@@ -40,3 +40,21 @@ TODO It is still your job to create the Secret and Deployment.
 Next, we will expose a Service
 
 TODO start a service and expose it
+
+Next, we will bind to the Service
+
+``` bash
+kubectl --context $CLUSTER apply -f samples/helloworld-binding.yaml
+```
+
+To see the results,
+
+``` bash
+kubectl get svc binding-limited-trust -o yaml
+kubectl get endpoints binding-limited-trust -o yaml
+```
+
+### Cleanup
+
+kubectl delete servicebinding helloworld
+kubectl delete meshfedconfig limited-trust

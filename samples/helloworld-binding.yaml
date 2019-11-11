@@ -4,16 +4,15 @@ metadata:
   name: helloworld
 spec:
   name: helloworld
+  namespace: default
   mesh_fed_config_selector:
     fed-config: limited-trust
+  endpoints:
+  - "9.1.2.3:5000"
+  - "10.4.5.6:9000"
   # optional
   # alias: some-other-name
   # optional
   # subset: v2
   # optional
   # port: 5000
-  # optional TODO do we need this?
-  # namespace:
-  # don't use, apparently already filled in for binding
-  # endpoints:
-  # - "???"
