@@ -49,11 +49,22 @@ echo Using $CLUSTER2 ingress at $CLUSTER2_INGRESS:15443
 cat samples/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
 ```
 
-To see the results,
+To see the Istio resources created by the controller,
 
 ``` bash
 kubectl get svc binding-limited-trust -o yaml
 kubectl get endpoints binding-limited-trust -o yaml
+```
+
+### Test interactively
+
+``` bash
+CLUSTER2_SECURE_INGRESS_PORT=15443
+CLUSTER2_INGRESS_HOST=$CLUSTER2_INGRESS
+kubectl --context $CLUSTER1 get secret c1-example-com-certs --output jsonpath="{.data.tls\.key}" | base64 -D > /tmp/c1.example.com.key
+kubectl --context $CLUSTER1 get secret c1-example-com-certs --output jsonpath="{.data.tls\.crt}" | base64 -D > /tmp/c1.example.com.crt
+kubectl --context $CLUSTER1 get secret c1-example-com-certs --output jsonpath="{.data.example\.com\.crt}" | base64 -D > /tmp/example.com.crt
+curl -HHost:c2.example.com --resolve c2.example.com:$CLUSTER2_SECURE_INGRESS_PORT:$CLUSTER2_INGRESS_HOST --cacert /tmp/example.com.crt --key /tmp/c1.example.com.key --cert /tmp/c1.example.com.crt https://c2.example.com:$CLUSTER2_SECURE_INGRESS_PORT/sample/helloworld/hello -w "\nResponse code: %{http_code}\n"
 ```
 
 ### Cleanup
