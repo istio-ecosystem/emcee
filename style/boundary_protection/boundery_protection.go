@@ -10,6 +10,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 	"github.ibm.com/istio-research/mc2019/style"
@@ -285,6 +287,16 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
+	// Create a Kubernetes endpoint for the remote Ingress Service, if needed
+	svcRemoteClusterEndpoint, err := boundaryProtectionRemoteIngressServiceEndpoint(targetNamespace, sb, mfc)
+	if err != nil {
+		log.Infof("Could not generate Remote Cluster ingress Service endpoint")
+		return err
+	}
+	err = bp.cli.Create(ctx, svcRemoteClusterEndpoint)
+	if logAndCheckExist(err, "Remote Cluster ingress Service endpoint", renderName(&svcRemoteClusterEndpoint.ObjectMeta)) {
+		return err
+	}
 	// Create an Istio destination rule for the remote Ingress, if needed
 	drRemoteCluster := boundaryProtectionRemoteDestinationRule(targetNamespace, mfc)
 	_, err = bp.istioCli.NetworkingV1alpha3().DestinationRules(targetNamespace).Create(&drRemoteCluster)
@@ -782,9 +794,9 @@ func (bp *bounderyProtection) createIngressDeployment(ctx context.Context, mfc *
 	return err
 }
 
-func boundaryProtectionRemoteIngressService(namespace string, owner *mmv1.MeshFedConfig) corev1.Service {
-	port := 15443 // TODO How do I get this?
+func boundaryProtectionRemoteIngressService(namespace string, mfc *mmv1.MeshFedConfig) corev1.Service {
 
+	/* TODO Remove this code which reflects earlier thinking
 	return corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Service",
@@ -792,7 +804,7 @@ func boundaryProtectionRemoteIngressService(namespace string, owner *mmv1.MeshFe
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "c2-example-com", // TODO How do I get this?
 			Namespace:       namespace,
-			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
+			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
 			Type:         corev1.ServiceTypeExternalName,
@@ -806,6 +818,76 @@ func boundaryProtectionRemoteIngressService(namespace string, owner *mmv1.MeshFe
 			},
 		},
 	}
+	*/
+
+	port := mfc.Spec.IngressGatewayPort
+	svcRemoteName := fmt.Sprintf("binding-%s", mfc.GetName())
+
+	return corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            svcRemoteName,
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Name: "tls-for-cross-cluster-communication",
+					Port: int32(port),
+				},
+			},
+		},
+	}
+}
+
+func boundaryProtectionRemoteIngressServiceEndpoint(namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) (*corev1.Endpoints, error) {
+
+	// Note that we use sb.Spec.Endpoint port, not mfc.Spec.IngressGatewayPort
+
+	svcRemoteName := fmt.Sprintf("binding-%s", mfc.GetName())
+
+	addresses := []corev1.EndpointAddress{}
+	ports := []corev1.EndpointPort{}
+	for _, endpoint := range sb.Spec.Endpoints {
+		parts := strings.Split(endpoint, ":")
+		numparts := len(parts)
+		if numparts != 2 {
+			return nil, fmt.Errorf("Address %q not in form ip:port", endpoint)
+		}
+		port, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return nil, err
+		}
+		// TODO Verify parts[0] is an IPv4 or ipv6 address
+		addresses = append(addresses, corev1.EndpointAddress{
+			IP: parts[0],
+		})
+		ports = append(ports, corev1.EndpointPort{
+			Name: fmt.Sprintf("tls-%d", port),
+			Port: int32(port),
+		})
+	}
+
+	return &corev1.Endpoints{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            svcRemoteName,
+			Namespace:       namespace,
+			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: addresses,
+				Ports:     ports,
+			},
+		},
+	}, nil
 }
 
 func renderName(om *metav1.ObjectMeta) string {
