@@ -12,11 +12,11 @@ https://github.com/istio-ecosystem/multi-mesh-examples/blob/master/add_hoc_limit
 Before running, enable the new CRDs on your Kubernetes clusters:
 
 ``` bash
-CLUSTER1=...
+CLUSTER1=istio-test-paid3 # TODO change back to "..."
 kubectl --context $CLUSTER1 apply -f config/crd/bases/mm.ibm.istio.io_meshfedconfigs.yaml
 kubectl --context $CLUSTER1 apply -f config/crd/bases/mm.ibm.istio.io_servicebindings.yaml
 kubectl --context $CLUSTER1 apply -f config/crd/bases/mm.ibm.istio.io_serviceexpositions.yaml
-CLUSTER2=...
+CLUSTER2=istio-test-paid2 # TODO change back to "..."
 kubectl --context $CLUSTER2 apply -f config/crd/bases/mm.ibm.istio.io_meshfedconfigs.yaml
 kubectl --context $CLUSTER2 apply -f config/crd/bases/mm.ibm.istio.io_servicebindings.yaml
 kubectl --context $CLUSTER2 apply -f config/crd/bases/mm.ibm.istio.io_serviceexpositions.yaml
@@ -44,7 +44,7 @@ TODO start a service and expose it
 Next, we will bind to the Service
 
 ``` bash
-CLUSTER2_INGRESS=$(kubectl --context $CLUSTER2 get svc --selector mesh=limited-trust --output jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
+CLUSTER2_INGRESS=$(kubectl --context $CLUSTER2 get svc --selector mesh=limited-trust,role=remote-ingress-svc --output jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
 echo Using $CLUSTER2 ingress at $CLUSTER2_INGRESS:15443
 cat samples/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
 ```

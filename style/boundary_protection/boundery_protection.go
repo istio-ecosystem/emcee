@@ -363,6 +363,7 @@ func boundaryProtectionEgressService(name, namespace string, port int32, selecto
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": name,
+				"role": "egress-svc",
 			},
 			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
 		},
@@ -393,6 +394,7 @@ func boundaryProtectionIngressService(name, namespace string, port int32, select
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": name,
+				"role": "ingress-svc",
 			},
 			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
 		},
@@ -816,6 +818,7 @@ func boundaryProtectionRemoteIngressService(namespace string, mfc *mmv1.MeshFedC
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
+				"role": "remote-ingress-svc",
 			},
 			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
@@ -860,7 +863,7 @@ func boundaryProtectionRemoteIngressServiceEndpoint(namespace string, sb *mmv1.S
 
 	return &corev1.Endpoints{
 		TypeMeta: metav1.TypeMeta{
-			Kind: "Service",
+			Kind: "Endpoints",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceRemoteName(mfc),
@@ -949,6 +952,7 @@ func boundaryProtectionLocalServiceFacade(namespace string, sb *mmv1.ServiceBind
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
+				"role": "local-facade",
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
@@ -974,6 +978,7 @@ func boundaryProtectionLocalServiceEgress(gwSvcName, namespace string, sb *mmv1.
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
+				"role": "local-service-egress",
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
@@ -1072,6 +1077,7 @@ func boundaryProtectionEgressExternalVirtualService(gwSvcName, namespace string,
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
+				"role": "external",
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
@@ -1129,6 +1135,7 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, 
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
+				"role": "local-to-egress",
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
