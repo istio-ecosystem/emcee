@@ -44,7 +44,7 @@ TODO start a service and expose it
 Next, we will bind to the Service
 
 ``` bash
-CLUSTER2_INGRESS=$(kubectl --context $CLUSTER2 get svc --selector mesh=limited-trust,role=remote-ingress-svc --output jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
+CLUSTER2_INGRESS=$(kubectl --context $CLUSTER2 get svc --selector mesh=limited-trust,role=ingress-svc --output jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
 echo Using $CLUSTER2 ingress at $CLUSTER2_INGRESS:15443
 cat samples/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
 ```
