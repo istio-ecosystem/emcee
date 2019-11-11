@@ -304,14 +304,14 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
-	svcLocalFacade := boundaryProtectionLocalServiceFacade(targetNamespace, sb)
+	svcLocalFacade := boundaryProtectionLocalServiceFacade(targetNamespace, sb, mfc)
 	err = bp.cli.Create(ctx, &svcLocalFacade)
 	if logAndCheckExist(err, "Local Service facade Service", renderName(&svcLocalFacade.ObjectMeta)) {
 		return err
 	}
 
 	comboName := "hw-c2" // TODO This combines the service and Ingress name, do we have an algorithm to generate?
-	svcLocalEgress := boundaryProtectionLocalServiceEgress(comboName, targetNamespace, sb)
+	svcLocalEgress := boundaryProtectionLocalServiceEgress(comboName, targetNamespace, sb, mfc)
 	err = bp.cli.Create(ctx, &svcLocalEgress)
 	if logAndCheckExist(err, "Local Service egress Service", renderName(&svcLocalEgress.ObjectMeta)) {
 		return err
@@ -359,8 +359,11 @@ func boundaryProtectionEgressService(name, namespace string, port int32, selecto
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fmt.Sprintf("istio-%s-egress-%d", name, port),
-			Namespace:       namespace,
+			Name:      fmt.Sprintf("istio-%s-egress-%d", name, port),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": name,
+			},
 			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
@@ -386,8 +389,11 @@ func boundaryProtectionIngressService(name, namespace string, port int32, select
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fmt.Sprintf("istio-%s-ingress-%d", name, port),
-			Namespace:       namespace,
+			Name:      fmt.Sprintf("istio-%s-ingress-%d", name, port),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": name,
+			},
 			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
@@ -437,15 +443,18 @@ func boundaryProtectionIngressServiceAccount(name, namespace string, owner *mmv1
 		namespace, owner)
 }
 
-func boundaryProtectionXServiceAccount(name, namespace string, owner *mmv1.MeshFedConfig) corev1.ServiceAccount {
+func boundaryProtectionXServiceAccount(name, namespace string, mfc *mmv1.MeshFedConfig) corev1.ServiceAccount {
 	return corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ServiceAccount",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       namespace,
-			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
+			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
 	}
 }
@@ -803,8 +812,11 @@ func boundaryProtectionRemoteIngressService(namespace string, mfc *mmv1.MeshFedC
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            serviceRemoteName(mfc),
-			Namespace:       namespace,
+			Name:      serviceRemoteName(mfc),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
 			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
@@ -851,8 +863,11 @@ func boundaryProtectionRemoteIngressServiceEndpoint(namespace string, sb *mmv1.S
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            serviceRemoteName(mfc),
-			Namespace:       namespace,
+			Name:      serviceRemoteName(mfc),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
 			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -880,8 +895,11 @@ func boundaryProtectionRemoteDestinationRule(namespace string, mfc *mmv1.MeshFed
 			Kind: "DestinationRule",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            serviceRemoteName(mfc),
-			Namespace:       namespace,
+			Name:      serviceRemoteName(mfc),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
 			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
 		Spec: v1alpha3.DestinationRuleSpec{
@@ -921,14 +939,17 @@ func logAndCheckExist(err error, title, name string) bool {
 	return false
 }
 
-func boundaryProtectionLocalServiceFacade(namespace string, sb *mmv1.ServiceBinding) corev1.Service {
+func boundaryProtectionLocalServiceFacade(namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) corev1.Service {
 	return corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            boundLocalName(sb),
-			Namespace:       namespace,
+			Name:      boundLocalName(sb),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
@@ -943,14 +964,17 @@ func boundaryProtectionLocalServiceFacade(namespace string, sb *mmv1.ServiceBind
 	}
 }
 
-func boundaryProtectionLocalServiceEgress(gwSvcName, namespace string, sb *mmv1.ServiceBinding) corev1.Service {
+func boundaryProtectionLocalServiceEgress(gwSvcName, namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) corev1.Service {
 	return corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            gwSvcName,
-			Namespace:       namespace,
+			Name:      gwSvcName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
@@ -970,8 +994,11 @@ func boundaryProtectionLocalServiceGateway(gwSvcName, namespace string, sb *mmv1
 			Kind: "Gateway",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fmt.Sprintf("istio-%s-%s", mfc.GetName(), gwSvcName),
-			Namespace:       namespace,
+			Name:      fmt.Sprintf("istio-%s-%s", mfc.GetName(), gwSvcName),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
 		Spec: v1alpha3.GatewaySpec{
@@ -1006,8 +1033,11 @@ func boundaryProtectionLocalServiceDestinationRule(gwSvcName, namespace string, 
 			Kind: "DestinationRule",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            fmt.Sprintf("istio-%s", mfc.GetName()),
-			Namespace:       namespace,
+			Name:      fmt.Sprintf("istio-%s", mfc.GetName()),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
 		Spec: v1alpha3.DestinationRuleSpec{
@@ -1038,8 +1068,11 @@ func boundaryProtectionEgressExternalVirtualService(gwSvcName, namespace string,
 			Kind: "VirtualService",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            gwSvcName,
-			Namespace:       namespace,
+			Name:      gwSvcName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
 		Spec: v1alpha3.VirtualServiceSpec{
@@ -1092,8 +1125,11 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, 
 			Kind: "VirtualService",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            boundLocalName(sb),
-			Namespace:       namespace,
+			Name:      boundLocalName(sb),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"mesh": mfc.GetName(),
+			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
 		Spec: v1alpha3.VirtualServiceSpec{
