@@ -64,7 +64,7 @@ CLUSTER2_INGRESS_HOST=$CLUSTER2_INGRESS
 kubectl --context $CLUSTER1 get secret c1-example-com-certs --output jsonpath="{.data.tls\.key}" | base64 -D > /tmp/c1.example.com.key
 kubectl --context $CLUSTER1 get secret c1-example-com-certs --output jsonpath="{.data.tls\.crt}" | base64 -D > /tmp/c1.example.com.crt
 kubectl --context $CLUSTER1 get secret c1-example-com-certs --output jsonpath="{.data.example\.com\.crt}" | base64 -D > /tmp/example.com.crt
-curl -HHost:c2.example.com --resolve c2.example.com:$CLUSTER2_SECURE_INGRESS_PORT:$CLUSTER2_INGRESS_HOST --cacert /tmp/example.com.crt --key /tmp/c1.example.com.key --cert /tmp/c1.example.com.crt https://c2.example.com:$CLUSTER2_SECURE_INGRESS_PORT/sample/helloworld/hello -w "\nResponse code: %{http_code}\n"
+curl -HHost:c2.example.com --resolve c2.example.com:$CLUSTER2_SECURE_INGRESS_PORT:$CLUSTER2_INGRESS_HOST --cacert /tmp/example.com.crt --key /tmp/c1.example.com.key --cert /tmp/c1.example.com.crt https://c2.example.com:$CLUSTER2_SECURE_INGRESS_PORT/helloworld/hello -w "\nResponse code: %{http_code}\n"
 ```
 
 ### Cleanup
