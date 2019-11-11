@@ -227,7 +227,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 				Match: []*istiov1alpha3.HTTPMatchRequest{
 					{
 						Uri: &istiov1alpha3.StringMatch{
-							MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: "/" + namespace + "/" + serviceName},
+							MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: servicePathExposure(se)},
 						},
 					},
 				},
@@ -796,44 +796,20 @@ func (bp *bounderyProtection) createIngressDeployment(ctx context.Context, mfc *
 
 func boundaryProtectionRemoteIngressService(namespace string, mfc *mmv1.MeshFedConfig) corev1.Service {
 
-	/* TODO Remove this code which reflects earlier thinking
-	return corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Service",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            "c2-example-com", // TODO How do I get this?
-			Namespace:       namespace,
-			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
-		},
-		Spec: corev1.ServiceSpec{
-			Type:         corev1.ServiceTypeExternalName,
-			ExternalName: "9.1.2.3", // TODO How do I get this?
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "tls-for-cross-cluster-communication",
-					Port:       int32(port),
-					TargetPort: intstr.FromInt(int(port)),
-				},
-			},
-		},
-	}
-	*/
-
 	port := mfc.Spec.IngressGatewayPort
-	svcRemoteName := fmt.Sprintf("binding-%s", mfc.GetName())
 
 	return corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            svcRemoteName,
+			Name:            serviceRemoteName(mfc),
 			Namespace:       namespace,
 			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: "None",
 			Ports: []corev1.ServicePort{
 				{
 					Name: "tls-for-cross-cluster-communication",
@@ -847,8 +823,6 @@ func boundaryProtectionRemoteIngressService(namespace string, mfc *mmv1.MeshFedC
 func boundaryProtectionRemoteIngressServiceEndpoint(namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) (*corev1.Endpoints, error) {
 
 	// Note that we use sb.Spec.Endpoint port, not mfc.Spec.IngressGatewayPort
-
-	svcRemoteName := fmt.Sprintf("binding-%s", mfc.GetName())
 
 	addresses := []corev1.EndpointAddress{}
 	ports := []corev1.EndpointPort{}
@@ -877,7 +851,7 @@ func boundaryProtectionRemoteIngressServiceEndpoint(namespace string, sb *mmv1.S
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            svcRemoteName,
+			Name:            serviceRemoteName(mfc),
 			Namespace:       namespace,
 			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
@@ -890,25 +864,29 @@ func boundaryProtectionRemoteIngressServiceEndpoint(namespace string, sb *mmv1.S
 	}, nil
 }
 
+func serviceRemoteName(mfc *mmv1.MeshFedConfig) string {
+	return fmt.Sprintf("binding-%s", mfc.GetName())
+}
+
 func renderName(om *metav1.ObjectMeta) string {
 	return fmt.Sprintf("%s.%s", om.GetName(), om.GetNamespace())
 }
 
 // boundaryProtectionRemoteDestinationRule returns something like
 // https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/http#consume-helloworld-v2-in-the-first-cluster
-func boundaryProtectionRemoteDestinationRule(namespace string, owner *mmv1.MeshFedConfig) v1alpha3.DestinationRule {
+func boundaryProtectionRemoteDestinationRule(namespace string, mfc *mmv1.MeshFedConfig) v1alpha3.DestinationRule {
 	return v1alpha3.DestinationRule{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "DestinationRule",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            "c2-example-com", // TODO How do I get this?
+			Name:            serviceRemoteName(mfc),
 			Namespace:       namespace,
-			OwnerReferences: ownerReference(owner.APIVersion, owner.Kind, owner.ObjectMeta),
+			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
 		Spec: v1alpha3.DestinationRuleSpec{
 			DestinationRule: istiov1alpha3.DestinationRule{
-				Host:     "c2-example-com", // TODO How do I get this?
+				Host:     serviceRemoteName(mfc),
 				ExportTo: []string{"."},
 				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
 					PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
@@ -1054,7 +1032,6 @@ func boundaryProtectionLocalServiceDestinationRule(gwSvcName, namespace string, 
 }
 
 func boundaryProtectionEgressExternalVirtualService(gwSvcName, namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) v1alpha3.VirtualService {
-	remoteHost := "c2-example-com" // TODO Where does this come from?
 
 	return v1alpha3.VirtualService{
 		TypeMeta: metav1.TypeMeta{
@@ -1079,7 +1056,7 @@ func boundaryProtectionEgressExternalVirtualService(gwSvcName, namespace string,
 						Route: []*istiov1alpha3.RouteDestination{
 							{
 								Destination: &istiov1alpha3.Destination{
-									Host: fmt.Sprintf("%s.%s.svc.cluster.local", remoteHost, namespace),
+									Host: fmt.Sprintf("%s.%s.svc.cluster.local", serviceRemoteName(mfc), namespace),
 									Port: &istiov1alpha3.PortSelector{
 										Number: 15443,
 									},
@@ -1133,7 +1110,9 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, 
 							},
 						},
 						Rewrite: &istiov1alpha3.HTTPRewrite{
-							Uri: "/sample/helloworld/", // TODO Where do I get this from?
+							// See https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#HTTPRewrite
+							// This MUST match the ServiceExposition
+							Uri: servicePathBinding(sb),
 						},
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
@@ -1152,4 +1131,17 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, 
 			},
 		},
 	}
+}
+
+func servicePath(name string) string {
+	// TODO Escape / in sb.Spec.Name
+	return fmt.Sprintf("/%s/", name)
+}
+
+func servicePathBinding(sb *mmv1.ServiceBinding) string {
+	return servicePath(sb.Spec.Name)
+}
+
+func servicePathExposure(se *mmv1.ServiceExposition) string {
+	return servicePath(se.Spec.Name)
 }
