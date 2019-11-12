@@ -1047,16 +1047,24 @@ func boundaryProtectionLocalServiceDestinationRule(gwSvcName, namespace string, 
 		},
 		Spec: v1alpha3.DestinationRuleSpec{
 			DestinationRule: istiov1alpha3.DestinationRule{
-				Host: fmt.Sprintf("istio-%s.%s.svc.cluster.local", mfc.GetName(), namespace),
-				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
-					PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
-						&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
-							Port: &istiov1alpha3.PortSelector{
-								Number: 443,
+				Host: fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), namespace),
+				Subsets: []*istiov1alpha3.Subset{
+					{
+						Name: "hw-c2", // TODO(mb) Change
+						TrafficPolicy: &istiov1alpha3.TrafficPolicy{
+							LoadBalancer: &istiov1alpha3.LoadBalancerSettings{
+								LbPolicy: &istiov1alpha3.LoadBalancerSettings_Simple{},
 							},
-							Tls: &istiov1alpha3.TLSSettings{
-								Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
-								Sni:  fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, namespace),
+							PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+								&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+									Port: &istiov1alpha3.PortSelector{
+										Number: 443,
+									},
+									Tls: &istiov1alpha3.TLSSettings{
+										Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
+										Sni:  fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, namespace),
+									},
+								},
 							},
 						},
 					},
@@ -1160,8 +1168,8 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, 
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
 								Destination: &istiov1alpha3.Destination{
-									Host:   fmt.Sprintf("istio-%s.%s.svc.cluster.local", mfc.GetName(), namespace),
-									Subset: gwSvcName,
+									Host:   fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), namespace),
+									Subset: gwSvcName, // TODO(mb): What is this?
 									Port: &istiov1alpha3.PortSelector{
 										Number: 443,
 									},

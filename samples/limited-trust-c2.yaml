@@ -12,7 +12,7 @@ spec:
   use_egress_gateway: true
   egress_gateway_selector:
     istio: egressgateway
-  egress_gateway_port: 10001
+  egress_gateway_port: 443
   use_ingress_gateway: true
   ingress_gateway_selector:
     istio: ingressgateway

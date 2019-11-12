@@ -39,7 +39,10 @@ TODO It is still your job to create the Secret and Deployment.
 
 Next, we will expose a Service
 
-TODO start a service and expose it
+```
+kubectl --context $CLUSTER2 apply -f samples/helloworld.yaml
+kubectl --context $CLUSTER2 apply -f samples/helloworld-expose.yaml
+```
 
 Next, we will bind to the Service
 
