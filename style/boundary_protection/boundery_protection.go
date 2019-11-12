@@ -309,7 +309,7 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
-	comboName := "hw-c2" // TODO This combines the service and Ingress name, do we have an algorithm to generate?
+	comboName := serviceIntermeshName(sb.GetName()) //"hw-c2" // TODO This combines the service and Ingress name, do we have an algorithm to generate?
 	svcLocalEgress := boundaryProtectionLocalServiceEgress(comboName, targetNamespace, sb, mfc)
 	err = bp.cli.Create(ctx, &svcLocalEgress)
 	if logAndCheckExist(err, "Local Service egress Service", renderName(&svcLocalEgress.ObjectMeta)) {
@@ -1052,7 +1052,7 @@ func boundaryProtectionLocalServiceDestinationRule(gwSvcName, namespace string, 
 				Host: fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), namespace),
 				Subsets: []*istiov1alpha3.Subset{
 					{
-						Name: "hw-c2", // TODO(mb) Change
+						Name: serviceIntermeshName(sb.GetName()), // "hw-c2", // TODO(mb) Change
 						TrafficPolicy: &istiov1alpha3.TrafficPolicy{
 							LoadBalancer: &istiov1alpha3.LoadBalancerSettings{
 								LbPolicy: &istiov1alpha3.LoadBalancerSettings_Simple{},
@@ -1197,4 +1197,8 @@ func servicePathBinding(sb *mmv1.ServiceBinding) string {
 
 func servicePathExposure(se *mmv1.ServiceExposition) string {
 	return servicePath(se.Spec.Name)
+}
+
+func serviceIntermeshName(name string) string {
+	return fmt.Sprintf("%s-intermesh", name)
 }
