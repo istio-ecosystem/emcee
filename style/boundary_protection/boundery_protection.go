@@ -297,7 +297,7 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 	// Create an Istio destination rule for the remote Ingress, if needed
-	drRemoteCluster := boundaryProtectionRemoteDestinationRule(targetNamespace, mfc)
+	drRemoteCluster := boundaryProtectionRemoteDestinationRule(targetNamespace, mfc, sb)
 	_, err = bp.istioCli.NetworkingV1alpha3().DestinationRules(targetNamespace).Create(&drRemoteCluster)
 	if logAndCheckExist(err, "Remote Cluster DestinationRule", renderName(&svcRemoteCluster.ObjectMeta)) {
 		return err
@@ -817,7 +817,7 @@ func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBi
 			Kind: "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceRemoteName(mfc),
+			Name:      serviceRemoteName(mfc, sb),
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
@@ -866,7 +866,7 @@ func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBi
 			Kind: "Endpoints",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceRemoteName(mfc),
+			Name:      serviceRemoteName(mfc, sb),
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
@@ -884,8 +884,8 @@ func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBi
 	return &svc, &ep, nil
 }
 
-func serviceRemoteName(mfc *mmv1.MeshFedConfig) string {
-	return fmt.Sprintf("binding-%s-intermesh", mfc.GetName())
+func serviceRemoteName(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBinding) string {
+	return fmt.Sprintf("binding-%s-%s-intermesh", mfc.GetName(), sb.GetName())
 }
 
 func renderName(om *metav1.ObjectMeta) string {
@@ -894,13 +894,13 @@ func renderName(om *metav1.ObjectMeta) string {
 
 // boundaryProtectionRemoteDestinationRule returns something like
 // https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/http#consume-helloworld-v2-in-the-first-cluster
-func boundaryProtectionRemoteDestinationRule(namespace string, mfc *mmv1.MeshFedConfig) v1alpha3.DestinationRule {
+func boundaryProtectionRemoteDestinationRule(namespace string, mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBinding) v1alpha3.DestinationRule {
 	return v1alpha3.DestinationRule{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "DestinationRule",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceRemoteName(mfc),
+			Name:      serviceRemoteName(mfc, sb),
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
@@ -909,7 +909,7 @@ func boundaryProtectionRemoteDestinationRule(namespace string, mfc *mmv1.MeshFed
 		},
 		Spec: v1alpha3.DestinationRuleSpec{
 			DestinationRule: istiov1alpha3.DestinationRule{
-				Host:     serviceRemoteName(mfc),
+				Host:     serviceRemoteName(mfc, sb),
 				ExportTo: []string{"."},
 				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
 					PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
@@ -1105,7 +1105,7 @@ func boundaryProtectionEgressExternalVirtualService(gwSvcName, namespace string,
 						Route: []*istiov1alpha3.RouteDestination{
 							{
 								Destination: &istiov1alpha3.Destination{
-									Host: fmt.Sprintf("%s.%s.svc.cluster.local", serviceRemoteName(mfc), namespace),
+									Host: fmt.Sprintf("%s.%s.svc.cluster.local", serviceRemoteName(mfc, sb), namespace),
 									Port: &istiov1alpha3.PortSelector{
 										Number: 15443,
 									},
