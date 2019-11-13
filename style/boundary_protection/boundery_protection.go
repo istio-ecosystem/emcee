@@ -823,7 +823,7 @@ func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBi
 				"mesh": mfc.GetName(),
 				"role": "remote-ingress-svc",
 			},
-			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
+			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
 			Type:      corev1.ServiceTypeClusterIP,
@@ -871,7 +871,7 @@ func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBi
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
 			},
-			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
+			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
 		Subsets: []corev1.EndpointSubset{
 			{
@@ -885,7 +885,7 @@ func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBi
 }
 
 func serviceRemoteName(mfc *mmv1.MeshFedConfig) string {
-	return fmt.Sprintf("binding-%s", mfc.GetName())
+	return fmt.Sprintf("binding-%s-intermesh", mfc.GetName())
 }
 
 func renderName(om *metav1.ObjectMeta) string {
