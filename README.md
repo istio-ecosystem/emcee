@@ -24,7 +24,9 @@ kubectl --context $CLUSTER2 apply -f config/crd/bases/mm.ibm.istio.io_serviceexp
 
 Also, follow [Vadim's mutual TLS setup instructions](https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/common-setup#prerequisites-for-three-clusters).
 
-To start, do `make run`.  TODO We need to do this twice, once for each cluster, with different contexts.
+To start, do `make run` or after a `make` do a `./bin/manager`. That way, one can run the controller for two clusters on the same system by specifying the `metrics-addr` as in:
+`./bin/manager  --metrics-addr \":8080\"` and `./bin/manager  --metrics-addr \":8081\"`.
+TODO We need to do this twice, once for each cluster, with different contexts.
 
 To test, we first need to tell the system what kind of security to implement:
 
