@@ -336,7 +336,7 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
-	vsLocalToEgress := boundaryProtectionLocalToEgressVirtualService(comboName, localNamespace, sb, mfc) // MBMB
+	vsLocalToEgress := boundaryProtectionLocalToEgressVirtualService(comboName, sb, mfc) // MBMB
 	_, err = bp.istioCli.NetworkingV1alpha3().VirtualServices(localNamespace).Create(&vsLocalToEgress)
 	if logAndCheckExist(err, "Local Service to egress VirtualService", renderName(&vsLocalToEgress.ObjectMeta)) {
 		return err
@@ -1138,7 +1138,7 @@ func boundLocalPort(sb *mmv1.ServiceBinding) uint32 {
 	return 5000 // TODO Is port mandatory?  If so, check it before calling this method
 }
 
-func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) v1alpha3.VirtualService {
+func boundaryProtectionLocalToEgressVirtualService(gwSvcName string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) v1alpha3.VirtualService {
 
 	return v1alpha3.VirtualService{
 		TypeMeta: metav1.TypeMeta{
@@ -1146,7 +1146,7 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, 
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      boundLocalName(sb),
-			Namespace: namespace,
+			Namespace: sb.GetNamespace(),
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
 				"role": "local-to-egress",
