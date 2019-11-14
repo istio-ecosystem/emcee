@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -494,7 +495,7 @@ func boundaryProtectionEgressDeployment(name, namespace string, labels map[strin
 							Name:  "istio-proxy",
 							Args:  boundaryProtectionPodArgs("istio-private-egressgateway"),
 							Env:   boundaryProtectionPodEnv(labels, "istio-private-egressgateway"),
-							Image: "docker.io/istio/proxyv2:1.4.0-beta.1", // TODO Get from Istio
+							Image: egressImage(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "istio-certs",
@@ -570,7 +571,7 @@ func boundaryProtectionIngressDeployment(name, namespace string, labels map[stri
 							Name:  "istio-proxy",
 							Args:  boundaryProtectionPodArgs("istio-private-ingressgateway"),
 							Env:   boundaryProtectionPodEnv(labels, "istio-private-ingressgateway"),
-							Image: "docker.io/istio/proxyv2:1.4.0-beta.1", // TODO Get from Istio
+							Image: ingressImage(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "istio-certs",
@@ -1205,4 +1206,19 @@ func servicePathExposure(se *mmv1.ServiceExposition) string {
 
 func serviceIntermeshName(name string) string {
 	return fmt.Sprintf("%s-intermesh", name)
+}
+
+func egressImage() string {
+	// TODO Get from Istio control plane deployment
+	istioProxyImage := os.Getenv("ISTIO_PROXY_IMAGE")
+	if istioProxyImage != "" {
+		return istioProxyImage
+	}
+
+	return "docker.io/istio/proxyv2:1.2.5"
+}
+
+func ingressImage() string {
+	// Istio uses same disk image for ingress and egress workloads
+	return egressImage()
 }
