@@ -201,7 +201,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 				},
 			},
 		}
-		if _, err := mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), se.GetNamespace(), gateway, se.GetUID()); err != nil {
+		if _, err := mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), mfc.GetNamespace(), gateway, se.GetUID()); err != nil {
 			return err
 		}
 	} else {
@@ -249,7 +249,7 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 			},
 		},
 	}
-	if _, err := mfutil.CreateIstioVirtualService(bp.istioCli, name, namespace, vs, se.GetUID()); err != nil {
+	if _, err := mfutil.CreateIstioVirtualService(bp.istioCli, name, mfc.GetNamespace(), vs, se.GetUID()); err != nil {
 		// mfutil.DeleteIstioGateway(bp.istioCli, name, namespace)
 		return err
 	}
@@ -279,6 +279,7 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 	// See https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/http#consume-helloworld-v2-in-the-first-cluster
 
 	targetNamespace := mfc.GetNamespace()
+	localNamespace := sb.GetNamespace()
 
 	// Create a Kubernetes service for the remote Ingress, if needed
 	svcRemoteCluster, svcRemoteClusterEndpoint, err := boundaryProtectionRemoteIngressService(targetNamespace, sb, mfc)
@@ -290,12 +291,12 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 	if logAndCheckExist(err, "Remote Cluster ingress Service", renderName(&svcRemoteCluster.ObjectMeta)) {
 		return err
 	}
-
 	// Create a Kubernetes endpoint for the remote Ingress Service, if needed
 	err = bp.cli.Create(ctx, svcRemoteClusterEndpoint)
 	if logAndCheckExist(err, "Remote Cluster ingress Service endpoint", renderName(&svcRemoteClusterEndpoint.ObjectMeta)) {
 		return err
 	}
+
 	// Create an Istio destination rule for the remote Ingress, if needed
 	drRemoteCluster := boundaryProtectionRemoteDestinationRule(targetNamespace, mfc, sb)
 	_, err = bp.istioCli.NetworkingV1alpha3().DestinationRules(targetNamespace).Create(&drRemoteCluster)
@@ -303,7 +304,7 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
-	svcLocalFacade := boundaryProtectionLocalServiceFacade(targetNamespace, sb, mfc)
+	svcLocalFacade := boundaryProtectionLocalServiceFacade(localNamespace, sb, mfc)
 	err = bp.cli.Create(ctx, &svcLocalFacade)
 	if logAndCheckExist(err, "Local Service facade Service", renderName(&svcLocalFacade.ObjectMeta)) {
 		return err
@@ -334,8 +335,8 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
-	vsLocalToEgress := boundaryProtectionLocalToEgressVirtualService(comboName, targetNamespace, sb, mfc)
-	_, err = bp.istioCli.NetworkingV1alpha3().VirtualServices(targetNamespace).Create(&vsLocalToEgress)
+	vsLocalToEgress := boundaryProtectionLocalToEgressVirtualService(comboName, localNamespace, sb, mfc) // MBMB
+	_, err = bp.istioCli.NetworkingV1alpha3().VirtualServices(localNamespace).Create(&vsLocalToEgress)
 	if logAndCheckExist(err, "Local Service to egress VirtualService", renderName(&vsLocalToEgress.ObjectMeta)) {
 		return err
 	}
@@ -919,10 +920,10 @@ func boundaryProtectionRemoteDestinationRule(namespace string, mfc *mmv1.MeshFed
 							},
 							Tls: &istiov1alpha3.TLSSettings{
 								Mode:              istiov1alpha3.TLSSettings_MUTUAL,
-								ClientCertificate: "/etc/istio/mesh/certs/tls.crt",
-								PrivateKey:        "/etc/istio/mesh/certs/tls.key",
-								CaCertificates:    "/etc/istio/mesh/example.com.crt", // TODO Where do I get this?
-								Sni:               "c2.example.com",                  // TODO Where do I get this?
+								ClientCertificate: certificatesDir + "tls.crt",
+								PrivateKey:        certificatesDir + "tls.key",
+								CaCertificates:    certificatesDir + "example.com.crt", // TODO Where do I get this?
+								Sni:               "c2.example.com",                    // TODO Where do I get this?
 							},
 						},
 					},
@@ -1049,7 +1050,8 @@ func boundaryProtectionLocalServiceDestinationRule(gwSvcName, namespace string, 
 		},
 		Spec: v1alpha3.DestinationRuleSpec{
 			DestinationRule: istiov1alpha3.DestinationRule{
-				Host: fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), namespace),
+				Host:     fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), namespace),
+				ExportTo: []string{"*"},
 				Subsets: []*istiov1alpha3.Subset{
 					{
 						Name: serviceIntermeshName(sb.GetName()), // "hw-c2", // TODO(mb) Change
@@ -1094,6 +1096,7 @@ func boundaryProtectionEgressExternalVirtualService(gwSvcName, namespace string,
 		Spec: v1alpha3.VirtualServiceSpec{
 			VirtualService: istiov1alpha3.VirtualService{
 				Hosts:    []string{fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, namespace)},
+				ExportTo: []string{"."},
 				Gateways: []string{fmt.Sprintf("istio-%s-%s", mfc.GetName(), gwSvcName)},
 				Tcp: []*istiov1alpha3.TCPRoute{
 					{
@@ -1151,7 +1154,8 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, 
 		},
 		Spec: v1alpha3.VirtualServiceSpec{
 			VirtualService: istiov1alpha3.VirtualService{
-				Hosts: []string{boundLocalName(sb)},
+				Hosts:    []string{boundLocalName(sb)},
+				ExportTo: []string{"."},
 				Http: []*istiov1alpha3.HTTPRoute{
 					{
 						Match: []*istiov1alpha3.HTTPMatchRequest{
@@ -1170,7 +1174,7 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName, namespace string, 
 						Route: []*istiov1alpha3.HTTPRouteDestination{
 							{
 								Destination: &istiov1alpha3.Destination{
-									Host:   fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), namespace),
+									Host:   fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), mfc.GetNamespace()),
 									Subset: gwSvcName, // TODO(mb): What is this?
 									Port: &istiov1alpha3.PortSelector{
 										Number: 443,
