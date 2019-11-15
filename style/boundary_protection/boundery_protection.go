@@ -283,18 +283,13 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 	localNamespace := sb.GetNamespace()
 
 	// Create a Kubernetes service for the remote Ingress, if needed
-	svcRemoteCluster, svcRemoteClusterEndpoint, err := boundaryProtectionRemoteIngressService(targetNamespace, sb, mfc)
+	svcRemoteCluster, err := boundaryProtectionRemoteIngressService(targetNamespace, sb, mfc)
 	if err != nil {
 		log.Infof("Could not generate Remote Cluster ingress Service")
 		return err
 	}
 	err = bp.cli.Create(ctx, svcRemoteCluster)
 	if logAndCheckExist(err, "Remote Cluster ingress Service", renderName(&svcRemoteCluster.ObjectMeta)) {
-		return err
-	}
-	// Create a Kubernetes endpoint for the remote Ingress Service, if needed
-	err = bp.cli.Create(ctx, svcRemoteClusterEndpoint)
-	if logAndCheckExist(err, "Remote Cluster ingress Service endpoint", renderName(&svcRemoteClusterEndpoint.ObjectMeta)) {
 		return err
 	}
 
@@ -806,13 +801,40 @@ func (bp *bounderyProtection) createIngressDeployment(ctx context.Context, mfc *
 	return err
 }
 
-func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) (*corev1.Service, *corev1.Endpoints, error) {
+func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) (*corev1.Service, error) {
 
 	portName := func(port int) string {
 		return fmt.Sprintf("tls-%d", port)
 	}
 
-	port := mfc.Spec.IngressGatewayPort
+	//port := mfc.Spec.IngressGatewayPort
+
+	addresses := []corev1.EndpointAddress{}
+	ports := []corev1.EndpointPort{}
+	SingleAddressPort := 0
+	SingleAddressIP := ""
+
+	for _, endpoint := range sb.Spec.Endpoints {
+		parts := strings.Split(endpoint, ":")
+		numparts := len(parts)
+		if numparts != 2 {
+			return nil, fmt.Errorf("Address %q not in form ip:port", endpoint)
+		}
+		port, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return nil, err
+		}
+		// TODO Verify parts[0] is an IPv4 or ipv6 address
+		addresses = append(addresses, corev1.EndpointAddress{
+			IP: parts[0],
+		})
+		ports = append(ports, corev1.EndpointPort{
+			Name: portName(port),
+			Port: int32(port),
+		})
+		SingleAddressPort = port
+		SingleAddressIP = parts[0]
+	}
 
 	svc := corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -828,62 +850,18 @@ func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBi
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
 		Spec: corev1.ServiceSpec{
-			Type:      corev1.ServiceTypeClusterIP,
-			ClusterIP: "None",
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: SingleAddressIP,
 			Ports: []corev1.ServicePort{
 				{
-					Name: portName(int(port)),
-					Port: int32(port),
+					Name: "tls-for-cross-cluster-communication",
+					Port: int32(SingleAddressPort),
 				},
 			},
 		},
 	}
 
-	// Note that we use sb.Spec.Endpoint port, not mfc.Spec.IngressGatewayPort
-
-	addresses := []corev1.EndpointAddress{}
-	ports := []corev1.EndpointPort{}
-	for _, endpoint := range sb.Spec.Endpoints {
-		parts := strings.Split(endpoint, ":")
-		numparts := len(parts)
-		if numparts != 2 {
-			return nil, nil, fmt.Errorf("Address %q not in form ip:port", endpoint)
-		}
-		port, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return nil, nil, err
-		}
-		// TODO Verify parts[0] is an IPv4 or ipv6 address
-		addresses = append(addresses, corev1.EndpointAddress{
-			IP: parts[0],
-		})
-		ports = append(ports, corev1.EndpointPort{
-			Name: portName(port),
-			Port: int32(port),
-		})
-	}
-
-	ep := corev1.Endpoints{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Endpoints",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceRemoteName(mfc, sb),
-			Namespace: namespace,
-			Labels: map[string]string{
-				"mesh": mfc.GetName(),
-			},
-			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
-		},
-		Subsets: []corev1.EndpointSubset{
-			{
-				Addresses: addresses,
-				Ports:     ports,
-			},
-		},
-	}
-
-	return &svc, &ep, nil
+	return &svc, nil
 }
 
 func serviceRemoteName(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBinding) string {
