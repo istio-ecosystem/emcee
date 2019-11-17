@@ -306,8 +306,8 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
-	comboName := serviceIntermeshName(sb.GetName()) //"hw-c2" // TODO This combines the service and Ingress name, do we have an algorithm to generate?
-	svcLocalEgress := boundaryProtectionLocalServiceEgress(comboName, targetNamespace, sb, mfc)
+	comboName := serviceIntermeshName(sb.GetName())                                            //"hw-c2" // TODO This combines the service and Ingress name, do we have an algorithm to generate?
+	svcLocalEgress := boundaryProtectionLocalServiceEgress(comboName, localNamespace, sb, mfc) //MBMBMB
 	err = bp.cli.Create(ctx, &svcLocalEgress)
 	if logAndCheckExist(err, "Local Service egress Service", renderName(&svcLocalEgress.ObjectMeta)) {
 		return err
@@ -331,7 +331,7 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
-	vsLocalToEgress := boundaryProtectionLocalToEgressVirtualService(comboName, sb, mfc) // MBMB
+	vsLocalToEgress := boundaryProtectionLocalToEgressVirtualService(comboName, sb, mfc)
 	_, err = bp.istioCli.NetworkingV1alpha3().VirtualServices(localNamespace).Create(&vsLocalToEgress)
 	if logAndCheckExist(err, "Local Service to egress VirtualService", renderName(&vsLocalToEgress.ObjectMeta)) {
 		return err
@@ -957,7 +957,7 @@ func boundaryProtectionLocalServiceEgress(gwSvcName, namespace string, sb *mmv1.
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      gwSvcName,
-			Namespace: namespace,
+			Namespace: namespace, //MBMBMB
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
 				"role": "local-service-egress",
@@ -967,7 +967,7 @@ func boundaryProtectionLocalServiceEgress(gwSvcName, namespace string, sb *mmv1.
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Name: "http",
+					Name: "https", //MBMBMB
 					Port: 443,
 				},
 			},
@@ -999,7 +999,7 @@ func boundaryProtectionLocalServiceGateway(gwSvcName, namespace string, sb *mmv1
 							Protocol: "TLS",
 						},
 						Hosts: []string{
-							fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, namespace),
+							fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, "default"), //MBMB
 						},
 						Tls: &istiov1alpha3.Server_TLSOptions{
 							Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
@@ -1045,7 +1045,7 @@ func boundaryProtectionLocalServiceDestinationRule(gwSvcName, namespace string, 
 									},
 									Tls: &istiov1alpha3.TLSSettings{
 										Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
-										Sni:  fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, namespace),
+										Sni:  fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, "default"), //MBMBMB
 									},
 								},
 							},
@@ -1074,8 +1074,8 @@ func boundaryProtectionEgressExternalVirtualService(gwSvcName, namespace string,
 		},
 		Spec: v1alpha3.VirtualServiceSpec{
 			VirtualService: istiov1alpha3.VirtualService{
-				Hosts:    []string{fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, namespace)},
-				ExportTo: []string{"."},
+				Hosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", gwSvcName, "default")}, //MBMBMB
+				// ExportTo: []string{"."}, //MBMBMB
 				Gateways: []string{fmt.Sprintf("istio-%s-%s", mfc.GetName(), gwSvcName)},
 				Tcp: []*istiov1alpha3.TCPRoute{
 					{
@@ -1175,11 +1175,13 @@ func servicePath(name string) string {
 }
 
 func servicePathBinding(sb *mmv1.ServiceBinding) string {
-	return servicePath(sb.Spec.Name)
+	//MBMB return servicePath(sb.Spec.Name)
+	return fmt.Sprintf("/%s/%s/", sb.GetNamespace(), sb.GetName())
 }
 
 func servicePathExposure(se *mmv1.ServiceExposition) string {
-	return servicePath(se.Spec.Name)
+	//MBMB return servicePath(se.Spec.Name)
+	return fmt.Sprintf("/%s/%s/", se.GetNamespace(), se.GetName())
 }
 
 func serviceIntermeshName(name string) string {
