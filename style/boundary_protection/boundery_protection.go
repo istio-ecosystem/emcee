@@ -1183,7 +1183,7 @@ func servicePathBinding(sb *mmv1.ServiceBinding) string {
 
 func servicePathExposure(se *mmv1.ServiceExposition) string {
 	//MBMB return servicePath(se.Spec.Name)
-	return fmt.Sprintf("/%s/%s/", se.GetNamespace(), se.GetName())
+	return fmt.Sprintf("/%s/%s/", se.GetNamespace(), se.Spec.Name)
 }
 
 func serviceIntermeshName(name string) string {
