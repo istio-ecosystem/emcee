@@ -31,16 +31,16 @@ import (
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 )
 
-type bounderyProtection struct {
+type boundaryProtection struct {
 	cli      client.Client
 	istioCli istioclient.Interface
 }
 
 var (
 	// (compile-time check that we implement the interface)
-	_ style.MeshFedConfig  = &bounderyProtection{}
-	_ style.ServiceBinder  = &bounderyProtection{}
-	_ style.ServiceExposer = &bounderyProtection{}
+	_ style.MeshFedConfig  = &boundaryProtection{}
+	_ style.ServiceBinder  = &boundaryProtection{}
+	_ style.ServiceExposer = &boundaryProtection{}
 )
 
 const (
@@ -49,7 +49,7 @@ const (
 
 // NewBoundaryProtectionMeshFedConfig creates a "Boundary Protection" style implementation for handling MeshFedConfig
 func NewBoundaryProtectionMeshFedConfig(cli client.Client, istioCli istioclient.Interface) style.MeshFedConfig {
-	return &bounderyProtection{
+	return &boundaryProtection{
 		cli:      cli,
 		istioCli: istioCli,
 	}
@@ -57,7 +57,7 @@ func NewBoundaryProtectionMeshFedConfig(cli client.Client, istioCli istioclient.
 
 // NewBoundaryProtectionServiceExposer creates a "Boundary Protection" style implementation for handling ServiceExposure
 func NewBoundaryProtectionServiceExposer(cli client.Client, istioCli istioclient.Interface) style.ServiceExposer {
-	return &bounderyProtection{
+	return &boundaryProtection{
 		cli:      cli,
 		istioCli: istioCli,
 	}
@@ -65,14 +65,14 @@ func NewBoundaryProtectionServiceExposer(cli client.Client, istioCli istioclient
 
 // NewBoundaryProtectionServiceBinder creates a "Boundary Protection" style implementation for handling ServiceBinding
 func NewBoundaryProtectionServiceBinder(cli client.Client, istioCli istioclient.Interface) style.ServiceBinder {
-	return &bounderyProtection{
+	return &boundaryProtection{
 		cli:      cli,
 		istioCli: istioCli,
 	}
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
+func (bp *boundaryProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	// If the MeshFedConfig changes we may need to re-create all of the Istio
 	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
 	// re-reconcile of every ServiceBinding and ServiceExposition.
@@ -164,12 +164,12 @@ func (bp *bounderyProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
+func (bp *boundaryProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	return nil
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
+func (bp *boundaryProtection) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
 
 	// Create an Istio Gateway
 	if mfc.Spec.UseIngressGateway {
@@ -269,13 +269,13 @@ func (bp *bounderyProtection) EffectServiceExposure(ctx context.Context, se *mmv
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
+func (bp *boundaryProtection) RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
 	return nil
 	// return fmt.Errorf("Unimplemented - service exposure delete")
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
+func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 
 	// See https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/http#consume-helloworld-v2-in-the-first-cluster
 
@@ -341,7 +341,7 @@ func (bp *bounderyProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 }
 
 // Implements Vadim-style
-func (bp *bounderyProtection) RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
+func (bp *boundaryProtection) RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 	return nil
 	// return fmt.Errorf("Unimplemented - service binding delete")
 }
@@ -429,7 +429,7 @@ func boundaryProtectionIngressService(name, namespace string, port int32, select
 // one congruent with user's Istio installation.  We should use Operator, but it is
 // not set up to create an ingress/egress w/o control plane
 func boundaryProtectionEgressServiceAccount(name, namespace string, owner *mmv1.MeshFedConfig) corev1.ServiceAccount {
-	return boundaryProtectionXServiceAccount(fmt.Sprintf("istio-%s-egressgateway-service-account", name),
+	return boundaryProtectionXServiceAccount(egressServiceAccountName(name),
 		namespace, owner)
 }
 
@@ -437,7 +437,7 @@ func boundaryProtectionEgressServiceAccount(name, namespace string, owner *mmv1.
 // one congruent with user's Istio installation.  We should use Operator, but it is
 // not set up to create an ingress/egress w/o control plane
 func boundaryProtectionIngressServiceAccount(name, namespace string, owner *mmv1.MeshFedConfig) corev1.ServiceAccount {
-	return boundaryProtectionXServiceAccount(fmt.Sprintf("istio-%s-ingressgateway-service-account", name),
+	return boundaryProtectionXServiceAccount(ingressServiceAccountName(name),
 		namespace, owner)
 }
 
@@ -485,6 +485,7 @@ func boundaryProtectionEgressDeployment(name, namespace string, labels map[strin
 					},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName: sa.GetName(),
 					Containers: []corev1.Container{
 						{
 							Name:  "istio-proxy",
@@ -561,6 +562,7 @@ func boundaryProtectionIngressDeployment(name, namespace string, labels map[stri
 					},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName: sa.GetName(),
 					Containers: []corev1.Container{
 						{
 							Name:  "istio-proxy",
@@ -734,7 +736,7 @@ func ownerReference(apiVersion, kind string, owner metav1.ObjectMeta) []metav1.O
 	}
 }
 
-func (bp *bounderyProtection) workloadMatches(ctx context.Context, namespace string, selector labels.Selector) (int, error) {
+func (bp *boundaryProtection) workloadMatches(ctx context.Context, namespace string, selector labels.Selector) (int, error) {
 	var matches corev1.PodList
 	err := bp.cli.List(ctx, &matches, &client.ListOptions{
 		Namespace:     namespace,
@@ -747,7 +749,7 @@ func (bp *bounderyProtection) workloadMatches(ctx context.Context, namespace str
 	return len(matches.Items), nil
 }
 
-func (bp *bounderyProtection) createEgressDeployment(ctx context.Context, mfc *mmv1.MeshFedConfig, targetNamespace, secret string) error {
+func (bp *boundaryProtection) createEgressDeployment(ctx context.Context, mfc *mmv1.MeshFedConfig, targetNamespace, secret string) error {
 	egressSA := boundaryProtectionEgressServiceAccount(mfc.GetName(),
 		targetNamespace, mfc)
 	err := bp.cli.Create(ctx, &egressSA)
@@ -774,8 +776,8 @@ func (bp *bounderyProtection) createEgressDeployment(ctx context.Context, mfc *m
 	return err
 }
 
-func (bp *bounderyProtection) createIngressDeployment(ctx context.Context, mfc *mmv1.MeshFedConfig, targetNamespace, secret string) error {
-	ingressSA := boundaryProtectionIngressServiceAccount(mfc.GetName()+"-ingressgateway",
+func (bp *boundaryProtection) createIngressDeployment(ctx context.Context, mfc *mmv1.MeshFedConfig, targetNamespace, secret string) error {
+	ingressSA := boundaryProtectionIngressServiceAccount(mfc.GetName(),
 		targetNamespace, mfc)
 	err := bp.cli.Create(ctx, &ingressSA)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
@@ -1201,4 +1203,12 @@ func egressImage() string {
 func ingressImage() string {
 	// Istio uses same disk image for ingress and egress workloads
 	return egressImage()
+}
+
+func egressServiceAccountName(mfcName string) string {
+	return fmt.Sprintf("istio-%s-egressgateway-sa", mfcName)
+}
+
+func ingressServiceAccountName(mfcName string) string {
+	return fmt.Sprintf("istio-%s-ingressgateway-sa", mfcName)
 }
