@@ -170,6 +170,7 @@ func (bp *boundaryProtection) EffectServiceExposure(ctx context.Context, se *mmv
 	// Build an Istio Gateway and an Istio Virtual Service
 	gw, vs, err := boundaryProtectionExposingGatewayAndVs(mfc, se)
 	_, err = createGateway(bp.istioCli, mfc.GetNamespace(), gw)
+
 	if err != nil {
 		log.Warnf("could not create gateway %v %v", gw, err)
 		return err
@@ -226,7 +227,7 @@ func createVirtualService(r istioclient.Interface, namespace string, vs *v1alpha
 }
 
 func boundaryProtectionExposingGatewayAndVs(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) (*v1alpha3.Gateway, *v1alpha3.VirtualService, error) {
-	if mfc.Spec.UseIngressGateway {
+	if !mfc.Spec.UseIngressGateway {
 		return nil, nil, fmt.Errorf("Boundry Protection requires Ingress Gateway")
 	}
 
