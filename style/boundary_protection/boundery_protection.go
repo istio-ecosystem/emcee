@@ -71,7 +71,6 @@ func NewBoundaryProtectionServiceBinder(cli client.Client, istioCli istioclient.
 	}
 }
 
-// Implements Vadim-style
 func (bp *boundaryProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	// If the MeshFedConfig changes we may need to re-create all of the Istio
 	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
@@ -163,59 +162,140 @@ func (bp *boundaryProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 	return nil
 }
 
-// Implements Vadim-style
 func (bp *boundaryProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	return nil
 }
 
-// Implements Vadim-style
 func (bp *boundaryProtection) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
-
-	// Create an Istio Gateway
-	if mfc.Spec.UseIngressGateway {
-		ingressGatewayPort := mfc.Spec.IngressGatewayPort
-		if ingressGatewayPort == 0 {
-			ingressGatewayPort = defaultGatewayPort
-		}
-
-		ingressSelector := defaultIngressGatewaySelector
-		if len(mfc.Spec.IngressGatewaySelector) != 0 {
-			ingressSelector = mfc.Spec.IngressGatewaySelector
-		}
-
-		gateway := istiov1alpha3.Gateway{
-			Selector: ingressSelector,
-			Servers: []*istiov1alpha3.Server{
-				{
-					Port: &istiov1alpha3.Port{
-						Number:   ingressGatewayPort,
-						Name:     "https-meshfed-port",
-						Protocol: "HTTPS",
-					},
-					Hosts: []string{"*"},
-					Tls: &istiov1alpha3.Server_TLSOptions{
-						Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
-						ServerCertificate: certificatesDir + "tls.crt",
-						PrivateKey:        certificatesDir + "tls.key",
-						CaCertificates:    certificatesDir + "example.com.crt",
-					},
-				},
-			},
-		}
-		if _, err := mfutil.CreateIstioGateway(bp.istioCli, se.GetName(), mfc.GetNamespace(), gateway, se.GetUID()); err != nil {
-			return err
-		}
-	} else {
-		// We should never get here. Boundry implementation is with ingress gateway always.
-		return fmt.Errorf("Boundry implementation requires ingress gateway")
+	// Build an Istio Gateway and an Istio Virtual Service
+	gw, vs, err := boundaryProtectionExposingGatewayAndVs(mfc, se)
+	_, err = createGateway(bp.istioCli, mfc.GetNamespace(), gw)
+	if err != nil {
+		log.Warnf("could not create gateway %v %v", gw, err)
+		return err
+	}
+	_, err = createVirtualService(bp.istioCli, mfc.GetNamespace(), vs)
+	if err != nil {
+		log.Warnf("could not create virtual service %v %v", vs, err)
+		return err
 	}
 
-	// Create an Istio Virtual Service
+	// get the endpoints
+	eps, err := mfutil.GetIngressEndpoints(ctx, bp.cli, mfc.GetName(), mfc.GetNamespace(), defaultGatewayPort)
+	if err != nil {
+		log.Warnf("could not get endpoints %v %v", eps, err)
+		return err
+	}
+	se.Spec.Endpoints = eps
+	se.Status.Ready = true
+	if err := bp.cli.Update(ctx, se); err != nil {
+		return err
+	}
+	return nil
+}
+
+func createGateway(r istioclient.Interface, namespace string, gateway *v1alpha3.Gateway) (*v1alpha3.Gateway, error) {
+	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(gateway)
+	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
+	if mfutil.ErrorAlreadyExists(err) {
+		updatedGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Get(gateway.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return updatedGateway, err
+		}
+		updatedGateway.Spec = gateway.Spec
+		updatedGateway, err = r.NetworkingV1alpha3().Gateways(namespace).Update(updatedGateway)
+		return updatedGateway, err
+	} else {
+		return createdGateway, err
+	}
+}
+
+func createVirtualService(r istioclient.Interface, namespace string, vs *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
+	createdGateway, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
+	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
+	if mfutil.ErrorAlreadyExists(err) {
+		updatedGateway, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(vs.GetName(), metav1.GetOptions{})
+		if err != nil {
+			return updatedGateway, err
+		}
+		updatedGateway.Spec = vs.Spec
+		updatedGateway, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(updatedGateway)
+		return updatedGateway, err
+	}
+	return createdGateway, err
+}
+
+func boundaryProtectionExposingGatewayAndVs(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) (*v1alpha3.Gateway, *v1alpha3.VirtualService, error) {
+	if mfc.Spec.UseIngressGateway {
+		return nil, nil, fmt.Errorf("Boundry Protection requires Ingress Gateway")
+	}
+
+	// build an Istio gateway
+	ingressGatewayPort := mfc.Spec.IngressGatewayPort
+	if ingressGatewayPort == 0 {
+		ingressGatewayPort = defaultGatewayPort
+	}
+
+	ingressSelector := defaultIngressGatewaySelector
+	if len(mfc.Spec.IngressGatewaySelector) != 0 {
+		ingressSelector = mfc.Spec.IngressGatewaySelector
+	}
+
+	gateway := istiov1alpha3.Gateway{
+		Selector: ingressSelector,
+		Servers: []*istiov1alpha3.Server{
+			{
+				Port: &istiov1alpha3.Port{
+					Number:   ingressGatewayPort,
+					Name:     "https-meshfed-port",
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"*"},
+				Tls: &istiov1alpha3.Server_TLSOptions{
+					Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
+					ServerCertificate: certificatesDir + "tls.crt",
+					PrivateKey:        certificatesDir + "tls.key",
+					CaCertificates:    certificatesDir + "example.com.crt",
+				},
+			},
+		},
+	}
+
 	name := se.GetName()
-	namespace := se.GetNamespace()
+	namespace := mfc.GetNamespace()
+	uid := se.GetUID()
+	gw := &v1alpha3.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "gateway",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+		},
+		Spec: v1alpha3.GatewaySpec{
+			Gateway: gateway,
+		},
+	}
+
+	gw.ObjectMeta.Name = name
+	if uid != "" {
+		ctrl := true
+		//gw.ObjectMeta.GenerateName = name + "-"
+		gw.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: mfutil.MeshFedVersion,
+				Kind:       "MeshFedConfig",
+				Name:       name,
+				UID:        uid,
+				Controller: &ctrl,
+			},
+		}
+	}
+
+	// create vs
+	namespace = se.GetNamespace()
 	serviceName := se.Spec.Name
 	fullname := serviceName + "." + namespace + defaultPrefix
-	vs := istiov1alpha3.VirtualService{
+	virtualService := istiov1alpha3.VirtualService{
 		Hosts: []string{
 			"*",
 		},
@@ -250,30 +330,43 @@ func (bp *boundaryProtection) EffectServiceExposure(ctx context.Context, se *mmv
 			},
 		},
 	}
-	if _, err := mfutil.CreateIstioVirtualService(bp.istioCli, name, mfc.GetNamespace(), vs, se.GetUID()); err != nil {
-		return err
-	}
 
-	eps, err := mfutil.GetIngressEndpoints(ctx, bp.cli, mfc.GetName(), mfc.GetNamespace(), defaultGatewayPort)
-	if err != nil {
-		log.Warnf("could not get endpoints %v %v", eps, err)
-		return err
+	// CreateIstioVirtualService(bp.istioCli, name, mfc.GetNamespace(), vs, se.GetUID())
+	// reateIstioVirtualService(r istioclient.Interface, name string, namespace string, virtualservice istiov1alpha3.VirtualService, uid types.UID) (*v1alpha3.VirtualService, error)
+	namespace = mfc.GetNamespace()
+	vs := &v1alpha3.VirtualService{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "virtualservice",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+		},
+		Spec: v1alpha3.VirtualServiceSpec{
+			VirtualService: virtualService,
+		},
 	}
-	se.Spec.Endpoints = eps
-	se.Status.Ready = true
-	if err := bp.cli.Update(ctx, se); err != nil {
-		return err
+	vs.ObjectMeta.Name = name
+	if uid != "" {
+		ctrl := true
+		//vs.ObjectMeta.GenerateName = name + "-"
+		vs.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: mfutil.MeshFedVersion,
+				Kind:       "MeshFedConfig",
+				Name:       name,
+				UID:        uid,
+				Controller: &ctrl,
+			},
+		}
 	}
-	return nil
+	return gw, vs, nil
 }
 
-// Implements Vadim-style
 func (bp *boundaryProtection) RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
 	return nil
 	// return fmt.Errorf("Unimplemented - service exposure delete")
 }
 
-// Implements Vadim-style
 func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 
 	// See https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/http#consume-helloworld-v2-in-the-first-cluster
@@ -339,7 +432,6 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 	return nil
 }
 
-// Implements Vadim-style
 func (bp *boundaryProtection) RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 	return nil
 	// return fmt.Errorf("Unimplemented - service binding delete")
