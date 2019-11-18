@@ -71,6 +71,9 @@ func NewBoundaryProtectionServiceBinder(cli client.Client, istioCli istioclient.
 	}
 }
 
+// ***************************
+// *** EffectMeshFedConfig ***
+// ***************************
 func (bp *boundaryProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	// If the MeshFedConfig changes we may need to re-create all of the Istio
 	// things for every ServiceBinding and ServiceExposition.  TODO Trigger
@@ -166,6 +169,9 @@ func (bp *boundaryProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1
 	return nil
 }
 
+// *****************************
+// *** EffectServiceExposure ***
+// *****************************
 func (bp *boundaryProtection) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
 	// Build an Istio Gateway and an Istio Virtual Service
 	gw, vs, err := boundaryProtectionExposingGatewayAndVs(mfc, se)
@@ -212,18 +218,18 @@ func createGateway(r istioclient.Interface, namespace string, gateway *v1alpha3.
 }
 
 func createVirtualService(r istioclient.Interface, namespace string, vs *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
-	createdGateway, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
+	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
 	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
 	if mfutil.ErrorAlreadyExists(err) {
-		updatedGateway, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(vs.GetName(), metav1.GetOptions{})
+		updatedVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(vs.GetName(), metav1.GetOptions{})
 		if err != nil {
-			return updatedGateway, err
+			return updatedVirtualService, err
 		}
-		updatedGateway.Spec = vs.Spec
-		updatedGateway, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(updatedGateway)
-		return updatedGateway, err
+		updatedVirtualService.Spec = vs.Spec
+		updatedVirtualService, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(updatedVirtualService)
+		return updatedVirtualService, err
 	}
-	return createdGateway, err
+	return createdVirtualService, err
 }
 
 func boundaryProtectionExposingGatewayAndVs(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) (*v1alpha3.Gateway, *v1alpha3.VirtualService, error) {
@@ -368,6 +374,9 @@ func (bp *boundaryProtection) RemoveServiceExposure(ctx context.Context, se *mmv
 	// return fmt.Errorf("Unimplemented - service exposure delete")
 }
 
+// ****************************
+// *** EffectServiceBinding ***
+// ****************************
 func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 
 	// See https://github.com/istio-ecosystem/multi-mesh-examples/tree/master/add_hoc_limited_trust/http#consume-helloworld-v2-in-the-first-cluster
