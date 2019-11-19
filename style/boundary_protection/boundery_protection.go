@@ -254,17 +254,7 @@ func boundaryProtectionExposingGatewayAndVs(mfc *mmv1.MeshFedConfig, se *mmv1.Se
 
 	gw.ObjectMeta.Name = name
 	if uid != "" {
-		ctrl := true
-		//gw.ObjectMeta.GenerateName = name + "-"
-		gw.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
-			{
-				APIVersion: mfutil.MeshFedVersion,
-				Kind:       "MeshFedConfig",
-				Name:       name,
-				UID:        uid,
-				Controller: &ctrl,
-			},
-		}
+		gw.ObjectMeta.OwnerReferences = ownerReference(se.APIVersion, se.Kind, se.ObjectMeta)
 	}
 
 	// create vs
@@ -323,17 +313,7 @@ func boundaryProtectionExposingGatewayAndVs(mfc *mmv1.MeshFedConfig, se *mmv1.Se
 	}
 	vs.ObjectMeta.Name = name
 	if uid != "" {
-		ctrl := true
-		//vs.ObjectMeta.GenerateName = name + "-"
-		vs.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
-			{
-				APIVersion: mfutil.MeshFedVersion,
-				Kind:       "MeshFedConfig",
-				Name:       name,
-				UID:        uid,
-				Controller: &ctrl,
-			},
-		}
+		vs.ObjectMeta.OwnerReferences = ownerReference(se.APIVersion, se.Kind, se.ObjectMeta)
 	}
 	return gw, vs, nil
 }
