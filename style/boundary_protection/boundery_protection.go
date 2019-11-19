@@ -201,37 +201,6 @@ func (bp *boundaryProtection) EffectServiceExposure(ctx context.Context, se *mmv
 	return nil
 }
 
-func createGateway(r istioclient.Interface, namespace string, gateway *v1alpha3.Gateway) (*v1alpha3.Gateway, error) {
-	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(gateway)
-	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
-	if mfutil.ErrorAlreadyExists(err) {
-		updatedGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Get(gateway.GetName(), metav1.GetOptions{})
-		if err != nil {
-			return updatedGateway, err
-		}
-		updatedGateway.Spec = gateway.Spec
-		updatedGateway, err = r.NetworkingV1alpha3().Gateways(namespace).Update(updatedGateway)
-		return updatedGateway, err
-	} else {
-		return createdGateway, err
-	}
-}
-
-func createVirtualService(r istioclient.Interface, namespace string, vs *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
-	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
-	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
-	if mfutil.ErrorAlreadyExists(err) {
-		updatedVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(vs.GetName(), metav1.GetOptions{})
-		if err != nil {
-			return updatedVirtualService, err
-		}
-		updatedVirtualService.Spec = vs.Spec
-		updatedVirtualService, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(updatedVirtualService)
-		return updatedVirtualService, err
-	}
-	return createdVirtualService, err
-}
-
 func boundaryProtectionExposingGatewayAndVs(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) (*v1alpha3.Gateway, *v1alpha3.VirtualService, error) {
 	if !mfc.Spec.UseIngressGateway {
 		return nil, nil, fmt.Errorf("Boundry Protection requires Ingress Gateway")
@@ -391,51 +360,56 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 	err = bp.cli.Create(ctx, svcRemoteCluster)
-	if logAndCheckExist(err, "Remote Cluster ingress Service", renderName(&svcRemoteCluster.ObjectMeta)) {
+	if err := logAndCheckExistAndUpdate(ctx, bp, svcRemoteCluster, err, "Remote Cluster ingress Service", renderName(&svcRemoteCluster.ObjectMeta)); err != nil {
 		return err
 	}
 
 	// Create an Istio destination rule for the remote Ingress, if needed
 	drRemoteCluster := boundaryProtectionRemoteDestinationRule(targetNamespace, mfc, sb)
-	_, err = bp.istioCli.NetworkingV1alpha3().DestinationRules(targetNamespace).Create(&drRemoteCluster)
-	if logAndCheckExist(err, "Remote Cluster DestinationRule", renderName(&svcRemoteCluster.ObjectMeta)) {
+	_, err = createDestinationRule(bp.istioCli, targetNamespace, &drRemoteCluster)
+	if err != nil {
+		log.Warnf("Failed creating/updating Istio destination rule %v: %v", drRemoteCluster.GetName(), err)
 		return err
 	}
 
 	svcLocalFacade := boundaryProtectionLocalServiceFacade(localNamespace, sb, mfc)
 	err = bp.cli.Create(ctx, &svcLocalFacade)
-	if logAndCheckExist(err, "Local Service facade Service", renderName(&svcLocalFacade.ObjectMeta)) {
+	if err := logAndCheckExistAndUpdate(ctx, bp, &svcLocalFacade, err, "Local Service facade Service", renderName(&svcLocalFacade.ObjectMeta)); err != nil {
 		return err
 	}
 
 	comboName := serviceIntermeshName(sb.Spec.Name)
 	svcLocalEgress := boundaryProtectionLocalServiceEgress(comboName, localNamespace, sb, mfc)
 	err = bp.cli.Create(ctx, &svcLocalEgress)
-	if logAndCheckExist(err, "Local Service egress Service", renderName(&svcLocalEgress.ObjectMeta)) {
+	if err := logAndCheckExistAndUpdate(ctx, bp, &svcLocalEgress, err, "Local Service egress Service", renderName(&svcLocalEgress.ObjectMeta)); err != nil {
 		return err
 	}
 
 	svcLocalGateway := boundaryProtectionLocalServiceGateway(comboName, targetNamespace, sb, mfc)
-	_, err = bp.istioCli.NetworkingV1alpha3().Gateways(targetNamespace).Create(&svcLocalGateway)
-	if logAndCheckExist(err, "Local Service egress Gateway", renderName(&svcLocalGateway.ObjectMeta)) {
+	_, err = createGateway(bp.istioCli, targetNamespace, &svcLocalGateway)
+	if err != nil {
+		log.Warnf("Failed creating/updating Istio gateway %v: %v", svcLocalGateway.GetName(), err)
 		return err
 	}
 
 	svcLocalDR := boundaryProtectionLocalServiceDestinationRule(comboName, targetNamespace, sb, mfc)
-	_, err = bp.istioCli.NetworkingV1alpha3().DestinationRules(targetNamespace).Create(&svcLocalDR)
-	if logAndCheckExist(err, "Local Service egress DestinationRule", renderName(&svcLocalDR.ObjectMeta)) {
+	_, err = createDestinationRule(bp.istioCli, targetNamespace, &svcLocalDR)
+	if err != nil {
+		log.Warnf("Failed creating/updating Istio destination rule %v: %v", svcLocalDR.GetName(), err)
 		return err
 	}
 
 	vsEgressExternal := boundaryProtectionEgressExternalVirtualService(comboName, targetNamespace, sb, mfc)
-	_, err = bp.istioCli.NetworkingV1alpha3().VirtualServices(targetNamespace).Create(&vsEgressExternal)
-	if logAndCheckExist(err, "Local Service departure egress VirtualService", renderName(&vsEgressExternal.ObjectMeta)) {
+	_, err = createVirtualService(bp.istioCli, targetNamespace, &vsEgressExternal)
+	if err != nil {
+		log.Warnf("Failed creating/updating Istio virtual service %v: %v", vsEgressExternal.GetName(), err)
 		return err
 	}
 
 	vsLocalToEgress := boundaryProtectionLocalToEgressVirtualService(comboName, sb, mfc)
-	_, err = bp.istioCli.NetworkingV1alpha3().VirtualServices(localNamespace).Create(&vsLocalToEgress)
-	if logAndCheckExist(err, "Local Service to egress VirtualService", renderName(&vsLocalToEgress.ObjectMeta)) {
+	_, err = createVirtualService(bp.istioCli, localNamespace, &vsLocalToEgress)
+	if err != nil {
+		log.Warnf("Failed creating/updating Istio virtual service %v: %v", vsLocalToEgress.GetName(), err)
 		return err
 	}
 
@@ -1013,18 +987,6 @@ func boundaryProtectionRemoteDestinationRule(namespace string, mfc *mmv1.MeshFed
 			},
 		},
 	}
-}
-
-// logAndCheckExist returns true if we failed in a bad way
-func logAndCheckExist(err error, title, name string) bool {
-	if err != nil && !mfutil.ErrorAlreadyExists(err) {
-		log.Infof("Failed to create %s %s: %v", title, name, err)
-		return true
-	}
-	if err == nil {
-		log.Infof("Created %s %s", title, name)
-	}
-	return false
 }
 
 func boundaryProtectionLocalServiceFacade(namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) corev1.Service {
