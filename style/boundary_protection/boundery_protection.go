@@ -868,7 +868,7 @@ func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBi
 
 	addresses := []corev1.EndpointAddress{}
 	ports := []corev1.EndpointPort{}
-	SingleAddressPort := 0
+	SingleAddressPort := 0 // TODO(mb) what if there are more? if not possible, refactor the for loop
 	SingleAddressIP := ""
 
 	for _, endpoint := range sb.Spec.Endpoints {
@@ -1078,7 +1078,7 @@ func boundaryProtectionLocalServiceDestinationRule(gwSvcName, namespace string, 
 				ExportTo: []string{"*"},
 				Subsets: []*istiov1alpha3.Subset{
 					{
-						Name: serviceIntermeshName(sb.GetName()), // "hw-c2", // TODO(mb) Change
+						Name: serviceIntermeshName(sb.GetName()),
 						TrafficPolicy: &istiov1alpha3.TrafficPolicy{
 							LoadBalancer: &istiov1alpha3.LoadBalancerSettings{
 								LbPolicy: &istiov1alpha3.LoadBalancerSettings_Simple{},
@@ -1198,7 +1198,7 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName string, sb *mmv1.Se
 							{
 								Destination: &istiov1alpha3.Destination{
 									Host:   fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), mfc.GetNamespace()),
-									Subset: gwSvcName, // TODO(mb): What is this?
+									Subset: gwSvcName,
 									Port: &istiov1alpha3.PortSelector{
 										Number: 443,
 									},
