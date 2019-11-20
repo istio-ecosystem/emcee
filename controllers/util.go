@@ -22,6 +22,7 @@ import (
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 	"github.ibm.com/istio-research/mc2019/style"
 	"github.ibm.com/istio-research/mc2019/style/boundary_protection"
+	"github.ibm.com/istio-research/mc2019/style/passthrough"
 
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"
@@ -65,8 +66,10 @@ func GetMeshFedConfig(ctx context.Context, r client.Client, mfcSelector map[stri
 // GetMeshFedConfigReconciler creates a MeshFedConfig implementation specific to the MeshFedStyle
 func GetMeshFedConfigReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.MeshFedConfig, error) {
 	// TODO: Detect if mfc refers to a Vadim-style reconciler
-	if true {
+	if mfc.Spec.UseEgressGateway {
 		return boundary_protection.NewBoundaryProtectionMeshFedConfig(cli, istioCli), nil
+	} else if mfc.Spec.UseIngressGateway {
+		return passthrough.NewPassthroughMeshFedConfig(cli, istioCli), nil
 	}
 	return nil, fmt.Errorf("No handler for %v style", mfc)
 }
@@ -74,8 +77,10 @@ func GetMeshFedConfigReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, isti
 // GetBindingReconciler creates a ServiceBinding implementation specific to the MeshFedStyle
 func GetBindingReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.ServiceBinder, error) {
 	// TODO: Detect if mfc refers to a Vadim-style reconciler
-	if true {
+	if mfc.Spec.UseEgressGateway {
 		return boundary_protection.NewBoundaryProtectionServiceBinder(cli, istioCli), nil
+	} else if mfc.Spec.UseIngressGateway {
+		return passthrough.NewPassthroughServiceBinder(cli, istioCli), nil
 	}
 	return nil, fmt.Errorf("No handler for %v style", mfc)
 }
@@ -83,8 +88,10 @@ func GetBindingReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli i
 // GetExposureReconciler creates a ServiceExposure implementation specific to the MeshFedStyle
 func GetExposureReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.ServiceExposer, error) {
 	// TODO: Detect if mfc refers to a Vadim-style reconciler
-	if true {
+	if mfc.Spec.UseEgressGateway {
 		return boundary_protection.NewBoundaryProtectionServiceExposer(cli, istioCli), nil
+	} else if mfc.Spec.UseIngressGateway {
+		return passthrough.NewPassthroughServiceExposer(cli, istioCli), nil
 	}
 	return nil, fmt.Errorf("No handler for %v style", mfc)
 }
