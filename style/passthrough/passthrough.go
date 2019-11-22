@@ -81,7 +81,7 @@ func (bp *Passthrough) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFe
 
 // EffectServiceExposure ...
 func (bp *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
-	dr, _ := passthroughExposingDR(mfc, se)
+	dr, _ := passthroughExposingDestinationRule(mfc, se)
 	_, _ = createDestinationRule(bp.istioCli, mfc.GetNamespace(), dr)
 
 	gw, _ := passthroughExposingGateway(mfc, se)
@@ -99,7 +99,7 @@ func (bp *Passthrough) RemoveServiceExposure(ctx context.Context, se *mmv1.Servi
 	// return fmt.Errorf("Unimplemented - service exposure delete")
 }
 
-func passthroughExposingDR(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) (*v1alpha3.DestinationRule, error) {
+func passthroughExposingDestinationRule(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) (*v1alpha3.DestinationRule, error) {
 	if !mfc.Spec.UseIngressGateway {
 		return nil, fmt.Errorf("passthrough requires Ingress Gateway")
 	}
