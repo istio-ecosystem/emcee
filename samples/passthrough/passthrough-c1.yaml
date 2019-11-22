@@ -1,0 +1,14 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: MeshFedConfig
+metadata:
+  name: passthrough
+  namespace: passthrough
+  labels:
+    secret: cluster1
+    fed-config: passthrough
+spec:
+  use_egress_gateway: false
+  use_ingress_gateway: true
+  ingress_gateway_selector:
+    istio: ingressgateway
+  ingress_gateway_port: 15443

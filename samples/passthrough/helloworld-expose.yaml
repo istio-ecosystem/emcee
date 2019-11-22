@@ -1,0 +1,9 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: ServiceExposition
+metadata:
+  name: server
+spec:
+  mesh_fed_config_selector:
+    fed-config: passthrough
+  name:	server
+  port:	9080

@@ -108,3 +108,14 @@ func createServiceEntry(r istioclient.Interface, namespace string, dr *v1alpha3.
 	}
 	return createdServiceEntry, err
 }
+
+func ownerReference(apiVersion, kind string, owner metav1.ObjectMeta) []metav1.OwnerReference {
+	return []metav1.OwnerReference{
+		{
+			APIVersion: apiVersion,
+			Kind:       kind,
+			Name:       owner.GetName(),
+			UID:        owner.GetUID(),
+		},
+	}
+}
