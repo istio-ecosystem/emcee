@@ -1,31 +1,25 @@
+// Licensed Materials - Property of IBM
+// (C) Copyright IBM Corp. 2019. All Rights Reserved.
+// US Government Users Restricted Rights - Use, duplication or
+// disclosure restricted by GSA ADP Schedule Contract with IBM Corp.
+// Copyright 2019 IBM Corporation
+
 package istioclient
 
 import (
+	// TODO Why use "sigs.k8s.io/controller-runtime/pkg/internal/log" elsewhere?
 	"log"
-	"os"
 
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
-	"k8s.io/client-go/tools/clientcmd"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// GetIstioClient creates an Istio client based on Kubernetes API server $KUBECONFIG
+// GetIstioClient creates an Istio client (preferring $KUBECONFIG, falling back to defaults)
 func GetIstioClient() *versionedclient.Clientset {
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfig == "" {
-		log.Fatalf("Environment variables KUBECONFIG must be set")
-	}
-	namespace := os.Getenv("NAMESPACE")
-	if namespace == "" {
-		namespace = "default"
-	}
-	restConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		log.Fatalf("Failed to create k8s rest client: %s", err)
-	}
-
+	restConfig := ctrl.GetConfigOrDie()
 	ic, err := versionedclient.NewForConfig(restConfig)
 	if err != nil {
-		log.Fatalf("Failed to create istio client: %s", err)
+		log.Fatalf("Failed to create Istio client: %s", err)
 		return nil
 	}
 	return ic

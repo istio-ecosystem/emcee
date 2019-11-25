@@ -64,25 +64,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	kclient := mgr.GetClient()
+	istioClient := istioclient.GetIstioClient()
+
 	if err = (&controllers.MeshFedConfigReconciler{
-		Client:    mgr.GetClient(),
-		Interface: istioclient.GetIstioClient(),
+		Client:    kclient,
+		Interface: istioClient,
 		//Log:    ctrl.Log.WithName("controllers").WithName("MeshFedConfig"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MeshFedConfig")
 		os.Exit(1)
 	}
 	if err = (&controllers.ServiceExpositionReconciler{
-		Client:    mgr.GetClient(),
-		Interface: istioclient.GetIstioClient(),
+		Client:    kclient,
+		Interface: istioClient,
 		//Log:    ctrl.Log.WithName("controllers").WithName("ServiceExposition"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceExposition")
 		os.Exit(1)
 	}
 	if err = (&controllers.ServiceBindingReconciler{
-		Client:    mgr.GetClient(),
-		Interface: istioclient.GetIstioClient(),
+		Client:    kclient,
+		Interface: istioClient,
 		//Log:    ctrl.Log.WithName("controllers").WithName("ServiceBinding"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
