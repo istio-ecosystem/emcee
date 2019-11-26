@@ -8,8 +8,10 @@ require (
 	github.com/aspenmesh/istio-client-go v0.0.0-20191010215625-4de6e89009c4
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/protobuf v1.3.2
+	github.com/hashicorp/go-multierror v1.0.0
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
+	gopkg.in/yaml.v2 v2.2.4
 	istio.io/api v0.0.0-20191015210738-bfa91e88abf1
 	istio.io/istio v0.0.0-20191021163937-deccffd2c961
 	istio.io/pkg v0.0.0-20191015053120-592d80277a1b
