@@ -9,9 +9,7 @@ package main
 import (
 	"flag"
 	"log"
-
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"os"
 
 	// This next line lets us use IBM Kubernetes Service
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
@@ -21,27 +19,10 @@ import (
 
 func main() {
 	var namespace string
-	var kcontext string
 	flag.StringVar(&namespace, "namespace", "", "Kubernetes namespace")
+	var kcontext string
 	flag.StringVar(&kcontext, "context", "", "Kubernetes configuration context")
 	flag.Parse()
-
-	// See https://godoc.org/k8s.io/client-go/tools/clientcmd#BuildConfigFromFlags
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	configOverrides := &clientcmd.ConfigOverrides{
-		ClusterDefaults: clientcmd.ClusterDefaults,
-		Context: clientcmdapi.Context{
-			Namespace: namespace,
-		},
-		CurrentContext: kcontext,
-	}
-
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-	restConfig, err := kubeConfig.ClientConfig()
-
-	if err != nil {
-		log.Fatalf("Failed to create Kubernetes REST config: %s", err)
-	}
 
 	var ns string
 	if namespace != "" {
@@ -50,7 +31,7 @@ func main() {
 		ns = "default"
 	}
 
-	cl, err := mcCliPkg.NewClient(restConfig)
+	cl, err := mcCliPkg.NewCliClient(namespace, kcontext)
 	if err != nil {
 		log.Fatalf("Failed to create cl: %s", err)
 	}
@@ -68,5 +49,5 @@ func main() {
 		log.Fatalf("Failed to convert: %s", err)
 	}
 
-	mcCliPkg.ToYAML(openAPI)
+	_ = mcCliPkg.ToYAML(openAPI, os.Stdout)
 }
