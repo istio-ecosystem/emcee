@@ -8,17 +8,18 @@ package pkg
 
 import (
 	"fmt"
+	"io"
 
 	"gopkg.in/yaml.v2"
 )
 
 // ToYAML prints YAML to stdout
-func ToYAML(data *OpenAPI) error {
+func ToYAML(data *OpenAPI, w io.Writer) error {
 	d, err := yaml.Marshal(&data)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%s", d)
+	fmt.Fprintf(w, "%s", d)
 	return nil
 }
