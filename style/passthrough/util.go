@@ -8,18 +8,23 @@ package passthrough
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	mfutil "github.ibm.com/istio-research/mc2019/util"
 	"istio.io/pkg/log"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	certificatesDir    = "/etc/istio/mesh/certs/"
+	certificatesDir    = "/etc/certs/"
 	defaultGatewayPort = uint32(15443)
+	intermeshNamespace = "global"
 )
 
 var (
@@ -118,4 +123,28 @@ func ownerReference(apiVersion, kind string, owner metav1.ObjectMeta) []metav1.O
 			UID:        owner.GetUID(),
 		},
 	}
+}
+
+// GetIngressEndpointsNoPort find the ingress endpoint
+func GetIngressEndpointsNoPort(ctx context.Context, c client.Client, name string, namespace string, port uint32) ([]string, error) {
+	var ingressService corev1.Service
+	nsn := types.NamespacedName{
+		// TODO: Make a function to make this name and use it everywhere
+		Name:      name,
+		Namespace: namespace,
+	}
+
+	if err := c.Get(ctx, nsn, &ingressService); err != nil {
+		log.Warnf("ingress service %v not found with err: %v ", nsn, ingressService)
+		return nil, err
+	}
+	if len(ingressService.Status.LoadBalancer.Ingress) > 0 {
+		var s []string
+		for _, ingress := range ingressService.Status.LoadBalancer.Ingress {
+			s = append(s, fmt.Sprintf("%s:%d", ingress.IP, port))
+		}
+		return s, nil
+	}
+	return nil, fmt.Errorf("Did not find a host IP")
+
 }

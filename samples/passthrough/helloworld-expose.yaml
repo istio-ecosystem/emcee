@@ -6,4 +6,4 @@ spec:
   mesh_fed_config_selector:
     fed-config: passthrough
   name:	server
-  port:	9080
+  port:	80
