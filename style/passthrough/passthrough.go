@@ -37,7 +37,8 @@ var (
 )
 
 const (
-	defaultPrefix = ".svc.cluster.local"
+	defaultPrefix      = ".svc.cluster.local"
+	defaultIngressPort = 15443
 )
 
 // NewPassthroughMeshFedConfig creates a "Passthrough" style implementation for handling MeshFedConfig
@@ -84,6 +85,14 @@ func (bp *Passthrough) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFe
 
 // EffectServiceExposure ...
 func (bp *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
+
+	eps, err := GetIngressEndpointsNoPort(ctx, bp.cli, "istio-ingressgateway", "istio-system", defaultIngressPort)
+	if err != nil {
+		log.Warnf("could not get endpoints %v %v", eps, err)
+		return err
+	}
+	se.Spec.Endpoints = eps
+
 	dr := passthroughExposingDestinationRule(mfc, se)
 	log.Infof("=================================== dr: %v", dr)
 	a, b := createDestinationRule(bp.istioCli, se.GetNamespace(), dr)
@@ -101,12 +110,7 @@ func (bp *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.Servi
 
 	// get the endpoints // TODO
 	// eps, err := GetIngressEndpointsNoPort(ctx, bp.cli, mfc.GetName(), mfc.GetNamespace())
-	eps, err := GetIngressEndpointsNoPort(ctx, bp.cli, "istio-ingressgateway", "istio-system", se.Spec.Port) // TODO
-	if err != nil {
-		log.Warnf("could not get endpoints %v %v", eps, err)
-		return err
-	}
-	se.Spec.Endpoints = eps
+
 	se.Status.Ready = true
 	if err := bp.cli.Update(ctx, se); err != nil {
 		return err
@@ -206,7 +210,10 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 	if !mfc.Spec.UseIngressGateway {
 		return nil, fmt.Errorf("passthrough requires Ingress Gateway")
 	}
-
+	portToListen := getPortfromIPPort(se.Spec.Endpoints[0])
+	if portToListen == 0 {
+		return nil, fmt.Errorf("passthrough requires a port number for Ingress Gateway")
+	}
 	return &v1alpha3.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Gateway",
@@ -225,7 +232,7 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 					&istiov1alpha3.Server{
 						Hosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace
 						Port: &istiov1alpha3.Port{
-							Number:   se.Spec.Port,
+							Number:   portToListen,
 							Protocol: "TLS",
 							Name:     se.Spec.Name,
 						},
@@ -243,6 +250,10 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 func passthroughExposingVirtualService(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) (*v1alpha3.VirtualService, error) {
 	if !mfc.Spec.UseIngressGateway {
 		return nil, fmt.Errorf("passthrough requires Ingress Gateway")
+	}
+	portToListen := getPortfromIPPort(se.Spec.Endpoints[0])
+	if portToListen == 0 {
+		return nil, fmt.Errorf("passthrough requires a port number for Ingress Gateway")
 	}
 
 	return &v1alpha3.VirtualService{
@@ -266,7 +277,7 @@ func passthroughExposingVirtualService(mfc *mmv1.MeshFedConfig, se *mmv1.Service
 					{
 						Match: []*istiov1alpha3.TLSMatchAttributes{
 							&istiov1alpha3.TLSMatchAttributes{
-								Port:     se.Spec.Port,
+								Port:     portToListen,
 								SniHosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace
 							},
 						},
@@ -286,6 +297,20 @@ func passthroughExposingVirtualService(mfc *mmv1.MeshFedConfig, se *mmv1.Service
 			},
 		},
 	}, nil
+}
+
+func getPortfromIPPort(ep string) uint32 {
+	parts := strings.Split(ep, ":")
+	numparts := len(parts)
+	if numparts != 2 {
+		log.Warnf("Address %q not in form ip:port", ep)
+		return 0
+	}
+	port, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0
+	}
+	return uint32(port)
 }
 
 func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBinding) *v1alpha3.ServiceEntry {

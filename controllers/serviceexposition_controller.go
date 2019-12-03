@@ -69,9 +69,6 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	// create Istio Gateway
-	// create Istio Virtual Service
-
 	if exposition.ObjectMeta.DeletionTimestamp.IsZero() {
 		if !containsString(exposition.ObjectMeta.Finalizers, myFinalizerName) {
 			exposition.ObjectMeta.Finalizers = append(exposition.ObjectMeta.Finalizers, myFinalizerName)
