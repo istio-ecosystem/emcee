@@ -94,19 +94,22 @@ func (bp *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.Servi
 	se.Spec.Endpoints = eps
 
 	dr := passthroughExposingDestinationRule(mfc, se)
-	log.Infof("=================================== dr: %v", dr)
-	a, b := createDestinationRule(bp.istioCli, se.GetNamespace(), dr)
-	log.Infof("................................... dr: %v %v", a, b)
+	_, err = createDestinationRule(bp.istioCli, se.GetNamespace(), dr)
+	if err != nil {
+		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
+	}
 
 	gw, _ := passthroughExposingGateway(mfc, se)
-	log.Infof("=================================== gw: %v", gw)
-	c, d := createGateway(bp.istioCli, se.GetNamespace(), gw)
-	log.Infof("................................... gw: %v %v", c, d)
+	_, err = createGateway(bp.istioCli, se.GetNamespace(), gw)
+	if err != nil {
+		log.Warnf("Could not created the Gateway %v: %v", gw.GetName(), err)
+	}
 
 	vs, _ := passthroughExposingVirtualService(mfc, se)
-	log.Infof("=================================== vs: %v", vs)
-	e, f := createVirtualService(bp.istioCli, se.GetNamespace(), vs)
-	log.Infof("................................... vs: %v %v", e, f)
+	_, err = createVirtualService(bp.istioCli, se.GetNamespace(), vs)
+	if err != nil {
+		log.Warnf("Could not created the Virtual Service %v: %v", vs.GetName(), err)
+	}
 
 	// get the endpoints // TODO
 	// eps, err := GetIngressEndpointsNoPort(ctx, bp.cli, mfc.GetName(), mfc.GetNamespace())
@@ -133,23 +136,23 @@ func (bp *Passthrough) RemoveServiceExposure(ctx context.Context, se *mmv1.Servi
 func (bp *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 
 	serviceEntry := passthroughBindingServiceEntry(mfc, sb)
-	log.Infof("=================================== se: %v", serviceEntry)
-	a, b := createServiceEntry(bp.istioCli, sb.GetNamespace(), serviceEntry)
-	log.Infof("................................... vs: %v %v", a, b)
+	_, err := createServiceEntry(bp.istioCli, sb.GetNamespace(), serviceEntry)
+	if err != nil {
+		log.Warnf("Could not created the Service Entry %v: %v", serviceEntry.GetName(), err)
+	}
 
 	dr := passthroughBindingDestinationRule(mfc, sb)
-	log.Infof("=================================== dr: %v", dr)
-	c, d := createDestinationRule(bp.istioCli, sb.GetNamespace(), dr)
-	log.Infof("................................... vs: %v %v", c, d)
-	// Create a Kubernetes service
+	_, err = createDestinationRule(bp.istioCli, sb.GetNamespace(), dr)
+	if err != nil {
+		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
+	}
+
 	svc := passthroughBindingService(sb, mfc)
-	log.Infof("=================================== svc: %v", svc)
 	if svc == nil {
 		log.Infof("Could not generate Remote Cluster ingress Service")
 		return fmt.Errorf("passthrough controller could not generate Remote Cluster ingress Service")
 	}
-	err := bp.cli.Create(ctx, svc)
-	log.Infof("................................... svc: %v", err)
+	err = bp.cli.Create(ctx, svc)
 	if err := logAndCheckExistAndUpdate(ctx, bp, svc, err, "Remote Cluster ingress Service", "TODO"); err != nil {
 		return err
 	}
