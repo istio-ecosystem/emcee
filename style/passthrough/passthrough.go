@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Passthrough has clients for k8s and Istio
 type Passthrough struct {
 	cli      client.Client
 	istioCli istioclient.Interface
@@ -38,7 +39,7 @@ var (
 
 const (
 	defaultPrefix      = ".svc.cluster.local"
-	defaultIngressPort = 15443
+	defaultIngressPort = 15443 // the port used at the Ingress
 )
 
 // NewPassthroughMeshFedConfig creates a "Passthrough" style implementation for handling MeshFedConfig
@@ -69,12 +70,12 @@ func NewPassthroughServiceBinder(cli client.Client, istioCli istioclient.Interfa
 // *** EffectMeshFedConfig ***
 // ***************************
 
-// EffectMeshFedConfig ...
+// EffectMeshFedConfig does not do anything for the passthrough mode
 func (bp *Passthrough) EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	return nil
 }
 
-// RemoveMeshFedConfig ...
+// RemoveMeshFedConfig does not do anything for the passthrough mode
 func (bp *Passthrough) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	return nil
 }
@@ -125,7 +126,6 @@ func (bp *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.Servi
 // RemoveServiceExposure ...
 func (bp *Passthrough) RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
 	return nil
-	// return fmt.Errorf("Unimplemented - service exposure delete")
 }
 
 // ****************************
@@ -163,12 +163,18 @@ func (bp *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.Servic
 // RemoveServiceBinding ...
 func (bp *Passthrough) RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 	return nil
-	// return fmt.Errorf("Unimplemented - service binding delete")
 }
 
 // *****************************
 // *****************************
 // *****************************
+
+func getIngressPort(mfc *mmv1.MeshFedConfig) uint32 {
+	if mfc.Spec.IngressGatewayPort == 0 {
+		return defaultIngressPort
+	}
+	return mfc.Spec.IngressGatewayPort
+}
 
 func passthroughExposingDestinationRule(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) *v1alpha3.DestinationRule {
 	if !mfc.Spec.UseIngressGateway {
