@@ -72,7 +72,6 @@ func GetMeshFedConfigReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, isti
 	if strings.ToUpper(mfc.Spec.Mode) == ModeBoundary {
 		return boundary_protection.NewBoundaryProtectionMeshFedConfig(cli, istioCli), nil
 	} else if strings.ToUpper(mfc.Spec.Mode) == ModePassthrough {
-		log.Warnf("*********************************************** meshfed")
 		return passthrough.NewPassthroughMeshFedConfig(cli, istioCli), nil
 	} else if mfc.Spec.UseEgressGateway {
 		return boundary_protection.NewBoundaryProtectionMeshFedConfig(cli, istioCli), nil
