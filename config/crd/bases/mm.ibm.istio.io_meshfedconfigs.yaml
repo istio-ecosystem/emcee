@@ -46,11 +46,12 @@ spec:
               additionalProperties:
                 type: string
               type: object
+            mode:
+              description: If specified, identifies the style of federation
+              type: string
             tls_context_selector:
               additionalProperties:
                 type: string
-              description: If specified, selects the group (secret) to apply this
-                configuration to
               type: object
             use_egress_gateway:
               type: boolean

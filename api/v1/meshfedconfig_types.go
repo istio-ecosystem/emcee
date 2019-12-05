@@ -25,6 +25,7 @@ import (
 // MeshFedConfigSpec defines the desired state of MeshFedConfig
 type MeshFedConfigSpec struct {
 	// If specified, selects the group (secret) to apply this configuration to
+	Mode                   string            `json:"mode,omitempty"`
 	TlsContextSelector     map[string]string `json:"tls_context_selector,omitempty"`
 	UseEgressGateway       bool              `json:"use_egress_gateway,omitempty"`
 	EgressGatewaySelector  map[string]string `json:"egress_gateway_selector,omitempty"`
