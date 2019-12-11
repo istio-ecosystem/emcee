@@ -33,8 +33,10 @@ import (
 const (
 	// DefaultGatewayPort is the port to use if port is not explicitly specified
 	DefaultGatewayPort = 15443
-	ModeBoundary       = "BOUNDARY"
-	ModePassthrough    = "PASSTHROUGH"
+	// ModeBoundary is for boundary protection style
+	ModeBoundary = "BOUNDARY"
+	// ModePassthrough is for the passthrough style
+	ModePassthrough = "PASSTHROUGH"
 )
 
 func GetMeshFedConfig(ctx context.Context, r client.Client, mfcSelector map[string]string) (mmv1.MeshFedConfig, error) {
