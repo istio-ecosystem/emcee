@@ -1,17 +1,17 @@
 apiVersion: mm.ibm.istio.io/v1
 kind: ServiceBinding
 metadata:
-  name: server
+  name: holamundo
 spec:
-  name: server
+  name: holamundo
   namespace: default
   mesh_fed_config_selector:
     fed-config: passthrough
   endpoints:
-  - "9.1.2.3:15443"
+  - "9.1.2.3:5000"
   # optional
   # alias: some-other-name
   # optional
   # subset: v2
   # optional
-  # port: 5000
+  port: 5000

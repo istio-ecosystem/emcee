@@ -200,6 +200,11 @@ func passthroughExposingDestinationRule(mfc *mmv1.MeshFedConfig, se *mmv1.Servic
 		Spec: v1alpha3.DestinationRuleSpec{
 			DestinationRule: istiov1alpha3.DestinationRule{
 				Host: svcName,
+				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
+					Tls: &istiov1alpha3.TLSSettings{
+						Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
+					},
+				},
 				Subsets: []*istiov1alpha3.Subset{
 					&istiov1alpha3.Subset{
 						Name: "notls",

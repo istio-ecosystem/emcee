@@ -47,7 +47,8 @@ spec:
                 type: string
               type: object
             mode:
-              description: If specified, identifies the style of federation
+              description: If specified, selects the group (secret) to apply this
+                configuration to
               type: string
             tls_context_selector:
               additionalProperties:
