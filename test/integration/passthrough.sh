@@ -15,7 +15,9 @@ fi
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 BASEDIR=$DIR/../..
 TMPDIR=/tmp
-ISTIODIR=/tmp/istio
+CERTDIR=$BASEDIR/samples/passthrough/certs
+# Set the istioctl if need to execute the commented out commands in main
+# ISTIOCTL=$BASEDIR/samples/bin/istioctl
 
 if [ -z "${CTX_CLUSTER1+xxx}" ]; then
    echo CTX_CLUSTER1 is not set
@@ -30,7 +32,26 @@ fi
 CLUSTER1=$CTX_CLUSTER1
 CLUSTER2=$CTX_CLUSTER2
 
+cleanup() {
+    # Clean up any existing multi-mesh configuration by removing config,binding,exposure
+    echo Cleanup starting
+    echo Removing expose and bind
+    kubectl --context $CLUSTER2 delete -f $BASEDIR/samples/passthrough/holamundo-expose.yaml 2> /dev/null || true
+    kubectl --context $CLUSTER1 delete -f $BASEDIR/samples/passthrough/holamundo-binding.yaml 2> /dev/null || true  
+    echo removing passthrough mesh fed config
+    kubectl --context $CLUSTER1 delete -f $BASEDIR/samples/passthrough/passthrough-c1.yaml 2> /dev/null || true
+    kubectl --context $CLUSTER2 delete -f $BASEDIR/samples/passthrough/passthrough-c2.yaml 2> /dev/null || true
+    echo removing server holamundo and client cli2 pods
+    kubectl --context $CLUSTER2 delete -f $BASEDIR/samples/passthrough/holamundo.yaml
+    kubectl --context $CLUSTER1 delete pod cli2
+    echo Cleanup done.
+}
+
+
+
 main() {
+    cleanup
+    sleep 5
 
     # TODO: Support --context in manager
     CFG_CLUSTER1=$TMPDIR/kubeconfig1
@@ -40,15 +61,15 @@ main() {
     kubectl config use-context $CTX_CLUSTER2
     kubectl config view --minify > $CFG_CLUSTER2
 
-    #MBMB  Setuo secrets //XXXXXX
+    #Setup secrets
     kubectl --context $CLUSTER1 delete secret -n istio-system cacerts 2> /dev/null || true
-    kubectl --context $CLUSTER1 create secret generic cacerts -n istio-system --from-file=$ISTIODIR/samples/certs/ca-cert.pem    --from-file=$ISTIODIR/samples/certs/ca-key.pem --from-file=$ISTIODIR/samples/certs/root-cert.pem --from-file=$ISTIODIR/samples/certs/cert-chain.pem
-    # $ISTIODIR/bin/istioctl --context $CLUSTER1  manifest apply --set values.global.mtls.enabled=true,values.security.selfSigned=false
+    kubectl --context $CLUSTER1 create secret generic cacerts -n istio-system --from-file=$CERTDIR/ca-cert.pem    --from-file=$CERTDIR/ca-key.pem --from-file=$CERTDIR/root-cert.pem --from-file=$CERTDIR/cert-chain.pem
+    # $ISTIOCTL --context $CLUSTER1  manifest apply --set values.global.mtls.enabled=true,values.security.selfSigned=false
     kubectl --context $CLUSTER1  delete secret istio.default
 
     kubectl --context $CLUSTER2 delete secret -n istio-system cacerts 2> /dev/null || true
-    kubectl --context $CLUSTER2 create secret generic cacerts -n istio-system --from-file=$ISTIODIR/samples/certs/ca-cert.pem     --from-file=$ISTIODIR/samples/certs/ca-key.pem --from-file=$ISTIODIR/samples/certs/root-cert.pem --from-file=$ISTIODIR/samples/certs/cert-chain.pem
-    # $ISTIODIR/bin/istioctl --context $CLUSTER2  manifest apply --set values.global.mtls.enabled=true,values.security.selfSigned=false
+    kubectl --context $CLUSTER2 create secret generic cacerts -n istio-system --from-file=$CERTDIR/ca-cert.pem     --from-file=$CERTDIR/ca-key.pem --from-file=$CERTDIR/root-cert.pem --from-file=$CERTDIR/cert-chain.pem
+    # $ISTIOCTL --context $CLUSTER2  manifest apply --set values.global.mtls.enabled=true,values.security.selfSigned=false
     kubectl --context $CLUSTER2  delete secret istio.default
 
     # creating namespaces 
@@ -67,7 +88,7 @@ main() {
     kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/passthrough/holamundo-expose.yaml
 
 
-    # Where is the gateway for traffic to the exposed service? //XXXX
+    # Where is the gateway for traffic to the exposed service? 
     CLUSTER2_INGRESS=$(kubectl --context $CLUSTER2 get svc -n istio-system istio-ingressgateway --output jsonpath="{.status.loadBalancer.ingress[0].ip}")
     echo Using $CLUSTER2 ingress at $CLUSTER2_INGRESS:15443
     CLUSTER2_SECURE_INGRESS_PORT=15443
