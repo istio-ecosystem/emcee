@@ -17,11 +17,6 @@ BASEDIR=$DIR/../..
 TMPDIR=/tmp
 ISTIODIR=/tmp/istio
 
-
-CTX_CLUSTER1=istio-test-paid3/943f03ffec22400ba82dd6abf6a21cd9
-CTX_CLUSTER2=istio-test-paid2/17fa44be50c2472286c27b33b8a251e3
-
-
 if [ -z "${CTX_CLUSTER1+xxx}" ]; then
    echo CTX_CLUSTER1 is not set
    exit 1
@@ -32,6 +27,8 @@ if [ -z "${CTX_CLUSTER2+xxx}" ]; then
    exit 1
 fi
 
+CLUSTER1=$CTX_CLUSTER1
+CLUSTER2=$CTX_CLUSTER2
 
 main() {
 
@@ -93,10 +90,10 @@ main() {
     cat $BASEDIR/samples/passthrough/holamundo-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
 
     # Wait for the exposure to be affected
-    until kubectl --context $CLUSTER1 get service holamundo ; do
-        echo Waiting for controller to create holamundo service
-        sleep 1
-    done
+    # until kubectl --context $CLUSTER1 get service holamundo ; do
+    #     echo Waiting for controller to create holamundo service
+    #     sleep 1
+    # done
 
     # TODO REMOVE
     sleep 5
@@ -121,7 +118,7 @@ main() {
     echo
 }
 
-trap shutdowns EXIT
+
 main "$@"
 exit 0
 
