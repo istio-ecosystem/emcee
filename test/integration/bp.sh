@@ -47,15 +47,15 @@ remove_finalizers() {
     ctx=$1
 
     # Remove finalizers, so that deletes don't block forever if controller isn't running
-    # for ns in $(kubectl --context $ctx get ns -o custom-columns=NAME:.metadata.name --no-headers); do
-    for ns in limited-trust default; do
-        # remove finalizers so we can delete w/o controller
-        for type in meshfedconfig serviceexposition servicebinding; do
-            for obj in $(kubectl --context $ctx get $type -n $ns -o custom-columns=NAME:.metadata.name --no-headers); do
-                echo removing finalizers from $type $obj in namespace $ns
-                kubectl --context $ctx -n $ns patch $type $obj --type='json' -p '[{"op": "remove", "path": "/metadata/finalizers"}]'
-            done
-        done
+    for type in meshfedconfig serviceexposition servicebinding; do
+        set +o errexit
+        kubectl --context $ctx get $type --all-namespaces -o custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace --no-headers > /tmp/crds.txt
+        set -o errexit
+        if [ -s /tmp/crds.txt ]; then
+            cat /tmp/crds.txt | \
+                awk -v ctx=$ctx -v type=$type -v squote="'" '{ print "kubectl --context " ctx " -n " $2 " patch " type " " $1 " --type=merge --patch " squote "{\"metadata\": {\"finalizers\": []}}" squote }' | \
+                xargs -0 bash -c
+        fi
     done
 }
 

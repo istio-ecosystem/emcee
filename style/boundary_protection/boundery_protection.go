@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 )
@@ -175,6 +176,11 @@ func (bp *boundaryProtection) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1
 func (bp *boundaryProtection) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
 	// Build an Istio Gateway and an Istio Virtual Service
 	gw, vs, err := boundaryProtectionExposingGatewayAndVs(mfc, se)
+	if err != nil {
+		log.Warnf("could not model gateway %v %v", gw, err)
+		return err
+	}
+
 	_, err = createGateway(bp.istioCli, mfc.GetNamespace(), gw)
 
 	if err != nil {
@@ -334,15 +340,29 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 	localNamespace := sb.GetNamespace()
 
 	// Create a Kubernetes service for the remote Ingress, if needed
-	svcRemoteCluster, err := boundaryProtectionRemoteIngressService(targetNamespace, sb, mfc)
+	goalSvcRemoteCluster, err := boundaryProtectionRemoteIngressService(targetNamespace, sb, mfc)
 	if err != nil {
 		log.Infof("Could not generate Remote Cluster ingress Service")
 		return err
 	}
-	err = bp.cli.Create(ctx, svcRemoteCluster)
-	if err := logAndCheckExistAndUpdate(ctx, bp, svcRemoteCluster, err, "Remote Cluster ingress Service", renderName(&svcRemoteCluster.ObjectMeta)); err != nil {
+	svcRemoteCluster := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      goalSvcRemoteCluster.GetName(),
+			Namespace: goalSvcRemoteCluster.GetNamespace(),
+		},
+	}
+	or, err := controllerutil.CreateOrUpdate(ctx, bp.cli, svcRemoteCluster, func() error {
+		svcRemoteCluster.ObjectMeta.Labels = goalSvcRemoteCluster.Labels
+		svcRemoteCluster.ObjectMeta.OwnerReferences = goalSvcRemoteCluster.ObjectMeta.OwnerReferences
+		svcRemoteCluster.Spec = goalSvcRemoteCluster.Spec
+		return nil
+	})
+	if err != nil {
 		return err
 	}
+	log.Infof("%s %s %s", or,
+		"Remote Cluster ingress Service",
+		renderName(&svcRemoteCluster.ObjectMeta))
 
 	// Create an Istio destination rule for the remote Ingress, if needed
 	drRemoteCluster := boundaryProtectionRemoteDestinationRule(targetNamespace, mfc, sb)
@@ -860,14 +880,6 @@ func (bp *boundaryProtection) createIngressDeployment(ctx context.Context, mfc *
 
 func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) (*corev1.Service, error) {
 
-	portName := func(port int) string {
-		return fmt.Sprintf("tls-%d", port)
-	}
-
-	//port := mfc.Spec.IngressGatewayPort
-
-	addresses := []corev1.EndpointAddress{}
-	ports := []corev1.EndpointPort{}
 	SingleAddressPort := 0 // TODO(mb) what if there are more? if not possible, refactor the for loop
 	SingleAddressIP := ""
 
@@ -882,13 +894,6 @@ func boundaryProtectionRemoteIngressService(namespace string, sb *mmv1.ServiceBi
 			return nil, err
 		}
 		// TODO Verify parts[0] is an IPv4 or ipv6 address
-		addresses = append(addresses, corev1.EndpointAddress{
-			IP: parts[0],
-		})
-		ports = append(ports, corev1.EndpointPort{
-			Name: portName(port),
-			Port: int32(port),
-		})
 		SingleAddressPort = port
 		SingleAddressIP = parts[0]
 	}
@@ -1211,11 +1216,6 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName string, sb *mmv1.Se
 			},
 		},
 	}
-}
-
-func servicePath(name string) string {
-	// TODO Escape / in sb.Spec.Name
-	return fmt.Sprintf("/%s/", name)
 }
 
 func servicePathBinding(sb *mmv1.ServiceBinding) string {

@@ -74,7 +74,7 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 			}
 		} else {
 			err = styleReconciler.EffectServiceBinding(ctx, &binding, &mfc)
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 	} else {
 		// The object is being deleted
@@ -92,6 +92,7 @@ func (r *ServiceBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager sets up the reconcilser with the manager
 func (r *ServiceBindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&mmv1.ServiceBinding{}).

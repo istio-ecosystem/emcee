@@ -12,9 +12,10 @@ import (
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	mfutil "github.ibm.com/istio-research/mc2019/util"
-	"istio.io/pkg/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"istio.io/pkg/log"
 )
 
 const (
@@ -35,6 +36,8 @@ func logAndCheckExistAndUpdate(ctx context.Context, bp *boundaryProtection, obje
 			log.Infof("Failed to create %s %s: %v", title, name, err)
 			return err
 		}
+		// TODO client.Update doesn't work with K8s v1.Service, follow the
+		// pattern controllerutil.CreateOrUpdate instead.
 		err := bp.cli.Update(ctx, object)
 		if err != nil {
 			log.Infof("Failed to update %s %s: %v", title, name, err)

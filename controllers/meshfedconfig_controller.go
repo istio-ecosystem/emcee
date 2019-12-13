@@ -91,8 +91,5 @@ func ignoreNotFound(err error) error {
 }
 
 func errorNotFound(err error) bool {
-	if apierrs.IsNotFound(err) {
-		return true
-	}
-	return false
+	return apierrs.IsNotFound(err)
 }
