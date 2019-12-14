@@ -7,6 +7,9 @@ metadata:
     secret: cluster1
     fed-config: limited-trust
 spec:
+  # Use Boundary Protection style data plane; see
+  # https://github.com/istio-ecosystem/multi-mesh-examples/blob/master/add_hoc_limited_trust/README.md
+  mode: BOUNDARY
   tls_context_selector:
     mesh: limited-trust
     secret: cluster1

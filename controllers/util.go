@@ -70,16 +70,12 @@ func GetMeshFedConfig(ctx context.Context, r client.Client, mfcSelector map[stri
 
 // GetMeshFedConfigReconciler creates a MeshFedConfig implementation specific to the MeshFedStyle
 func GetMeshFedConfigReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.MeshFedConfig, error) {
-	// TODO: Detect if mfc refers to a Vadim-style reconciler
 	if strings.ToUpper(mfc.Spec.Mode) == ModeBoundary {
 		return boundary_protection.NewBoundaryProtectionMeshFedConfig(cli, istioCli), nil
 	} else if strings.ToUpper(mfc.Spec.Mode) == ModePassthrough {
 		return passthrough.NewPassthroughMeshFedConfig(cli, istioCli), nil
-	} else if mfc.Spec.UseEgressGateway {
-		return boundary_protection.NewBoundaryProtectionMeshFedConfig(cli, istioCli), nil
-	} else if mfc.Spec.UseIngressGateway {
-		return passthrough.NewPassthroughMeshFedConfig(cli, istioCli), nil
 	}
+
 	return nil, fmt.Errorf("No handler for %v style", mfc)
 }
 

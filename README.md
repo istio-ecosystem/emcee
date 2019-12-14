@@ -5,7 +5,7 @@ A proof of concept that demonstrates high-level Istio multi-mesh.
 **expose** and **bind** CRDs are defined.  A **configuration** CRD is defined.
 
 A controller converts these CRDs into Istio CRDs using the style of
-https://github.com/istio-ecosystem/multi-mesh-examples/blob/master/add_hoc_limited_trust/README.md
+<https://github.com/istio-ecosystem/multi-mesh-examples/blob/master/add_hoc_limited_trust/README.md>
 
 ## Developer instructions
 
@@ -31,22 +31,20 @@ TODO We need to do this twice, once for each cluster, with different contexts.
 To test, we first need to tell the system what kind of security to implement:
 
 ``` bash
-kubectl --context $CLUSTER1 create ns limited-trust 
+kubectl --context $CLUSTER1 create ns limited-trust
 kubectl --context $CLUSTER2 create ns limited-trust
- 
-kubectl --context $CLUSTER1 apply -f samples/limited-trust-c1.yaml,samples/secret-c1.yaml
-kubectl --context $CLUSTER2 apply -f samples/limited-trust-c2.yaml,samples/secret-c2.yaml
+
+kubectl --context $CLUSTER1 apply -f samples/limited-trust/limited-trust-c1.yaml,samples/limited-trust/secret-c1.yaml
+kubectl --context $CLUSTER2 apply -f samples/limited-trust/limited-trust-c2.yaml,samples/limited-trust/secret-c2.yaml
 ```
 
-By applying these MeshFedConfigs, the mc2019 system creates a namespace, an ingress and an egress service.
-
-TODO It is still your job to create the Secret and Deployment.
+After applying these MeshFedConfigs the system creates ingress and egress services.
 
 Next, we will expose a Service
 
-```
-kubectl --context $CLUSTER2 apply -f samples/helloworld.yaml
-kubectl --context $CLUSTER2 apply -f samples/helloworld-expose.yaml
+``` bash
+kubectl --context $CLUSTER2 apply -f samples/limited-trust/helloworld.yaml
+kubectl --context $CLUSTER2 apply -f samples/limited-trust/helloworld-expose.yaml
 ```
 
 Next, we will bind to the Service
@@ -54,7 +52,7 @@ Next, we will bind to the Service
 ``` bash
 CLUSTER2_INGRESS=$(kubectl --context $CLUSTER2 get svc -n limited-trust --selector mesh=limited-trust,role=ingress-svc --output jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
 echo Using $CLUSTER2 ingress at $CLUSTER2_INGRESS:15443
-cat samples/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
+cat samples/limited-trust/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
 ```
 
 To see the Istio resources created by the controller,
@@ -62,6 +60,15 @@ To see the Istio resources created by the controller,
 ``` bash
 kubectl get svc binding-limited-trust -o yaml
 kubectl get endpoints binding-limited-trust -o yaml
+```
+
+### Test script
+
+``` bash
+make manager
+./test/integration/bp.sh
+./test/integration/cleanup-bp.sh
+./test/integration/pt.sh
 ```
 
 ### Test interactively
@@ -97,5 +104,7 @@ kubectl --context $CLUSTER1 -n limited-trust exec $EGRESS_POD -- curl --resolve 
 
 ### Cleanup
 
-kubectl delete servicebinding helloworld
-kubectl delete meshfedconfig limited-trust
+kubectl --context $CLUSTER2 delete serviceexposure helloworld
+kubectl --context $CLUSTER2 delete meshfedconfig limited-trust
+kubectl --context $CLUSTER1 delete servicebinding helloworld
+kubectl --context $CLUSTER1 delete meshfedconfig limited-trust
