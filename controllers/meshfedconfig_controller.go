@@ -59,7 +59,7 @@ func (r *MeshFedConfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 			}
 		} else {
 			err = styleReconciler.EffectMeshFedConfig(ctx, &mfc)
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 	} else {
 		// The object is being deleted
@@ -90,6 +90,6 @@ func ignoreNotFound(err error) error {
 	return err
 }
 
-func errorNotFound(err error) bool {
-	return apierrs.IsNotFound(err)
-}
+//func errorNotFound(err error) bool {
+//	return apierrs.IsNotFound(err)
+//}

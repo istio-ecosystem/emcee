@@ -38,7 +38,7 @@ var (
 )
 
 const (
-	defaultPrefix      = ".svc.cluster.local"
+	//	defaultPrefix      = ".svc.cluster.local"
 	defaultIngressPort = 15443 // the port used at the Ingress
 )
 
@@ -169,12 +169,12 @@ func (bp *Passthrough) RemoveServiceBinding(ctx context.Context, sb *mmv1.Servic
 // *****************************
 // *****************************
 
-func getIngressPort(mfc *mmv1.MeshFedConfig) uint32 {
-	if mfc.Spec.IngressGatewayPort == 0 {
-		return defaultIngressPort
-	}
-	return mfc.Spec.IngressGatewayPort
-}
+//func getIngressPort(mfc *mmv1.MeshFedConfig) uint32 {
+//	if mfc.Spec.IngressGatewayPort == 0 {
+//		return defaultIngressPort
+//	}
+//	return mfc.Spec.IngressGatewayPort
+//}
 
 func passthroughExposingDestinationRule(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) *v1alpha3.DestinationRule {
 	if !mfc.Spec.UseIngressGateway {
@@ -470,9 +470,9 @@ func serviceExposeName(mfcName, svcName string) string {
 	return fmt.Sprintf("exposition-%s-%s-intermesh", mfcName, svcName)
 }
 
-func serviceIntermeshName(name string) string {
-	return fmt.Sprintf("%s-intermesh", name)
-}
+//func serviceIntermeshName(name string) string {
+//	return fmt.Sprintf("%s-intermesh", name)
+//}
 
 func boundLocalPort(sb *mmv1.ServiceBinding) uint32 {
 	if sb.Spec.Port != 0 {

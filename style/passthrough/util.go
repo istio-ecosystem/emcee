@@ -22,16 +22,17 @@ import (
 )
 
 const (
-	certificatesDir    = "/etc/certs/"
-	defaultGatewayPort = uint32(15443)
-	intermeshNamespace = "global"
+	certificatesDir = "/etc/certs/"
+
+//	defaultGatewayPort = uint32(15443)
+//	intermeshNamespace = "global"
 )
 
-var (
-	defaultIngressGatewaySelector = map[string]string{
-		"istio": "ingressgateway",
-	}
-)
+//var (
+//	defaultIngressGatewaySelector = map[string]string{
+//		"istio": "ingressgateway",
+//	}
+//)
 
 // logAndCheckExistAndUpdate tries to update the k8s resource if the resource already exists; it retuens err if it fails
 func logAndCheckExistAndUpdate(ctx context.Context, pt *Passthrough, object runtime.Object, err error, title, name string) error {

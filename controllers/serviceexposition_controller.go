@@ -77,7 +77,7 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 			}
 		} else {
 			err = styleReconciler.EffectServiceExposure(ctx, &exposition, &mfc)
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 	} else {
 		// The object is being deleted

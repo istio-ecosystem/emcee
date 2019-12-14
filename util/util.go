@@ -42,17 +42,11 @@ func IgnoreNotFound(err error) error {
 }
 
 func ErrorNotFound(err error) bool {
-	if apierrs.IsNotFound(err) {
-		return true
-	}
-	return false
+	return apierrs.IsNotFound(err)
 }
 
 func ErrorAlreadyExists(err error) bool {
-	if apierrs.IsAlreadyExists(err) {
-		return true
-	}
-	return false
+	return apierrs.IsAlreadyExists(err)
 }
 
 func CreateIstioGateway(r istioclient.Interface, name string, namespace string, gateway istiov1alpha3.Gateway, uid types.UID) (*v1alpha3.Gateway, error) {
