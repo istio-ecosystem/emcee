@@ -108,7 +108,7 @@ func (bp *boundaryProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 	// If mfc.Spec.EgressGatewaySelector is empty, default it
 	if len(mfc.Spec.EgressGatewaySelector) == 0 {
 		mfc.Spec.EgressGatewaySelector = map[string]string{
-			"istio": "egressgateway",
+			style.ProjectID: "egressgateway",
 		}
 		log.Infof("MeshFedConfig did not specify an egress workload, using %v", mfc.Spec.EgressGatewaySelector)
 		// TODO?: persist this change

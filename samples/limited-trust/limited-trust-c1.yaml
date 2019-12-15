@@ -15,9 +15,9 @@ spec:
     secret: cluster1
   use_egress_gateway: true
   egress_gateway_selector:
-    istio: egressgateway
+    emcee: egressgateway
   egress_gateway_port: 443
   use_ingress_gateway: true
   ingress_gateway_selector:
-    istio: ingressgateway
+    emcee: ingressgateway
   ingress_gateway_port: 15443

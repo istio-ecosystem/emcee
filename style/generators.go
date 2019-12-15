@@ -12,6 +12,10 @@ import (
 	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
 )
 
+const (
+	ProjectID = "emcee"
+)
+
 // MeshFedConfig creates/destroys the underlying mesh objects that implement a mmv1.MeshFedConfig
 type MeshFedConfig interface {
 	EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error

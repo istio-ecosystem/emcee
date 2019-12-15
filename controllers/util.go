@@ -39,6 +39,7 @@ const (
 	ModePassthrough = "PASSTHROUGH"
 )
 
+// GetMeshFedConfig fetches a MeshFedConfig matching mfcSelector
 func GetMeshFedConfig(ctx context.Context, r client.Client, mfcSelector map[string]string) (mmv1.MeshFedConfig, error) {
 	var mfcList mmv1.MeshFedConfigList
 	var mfc mmv1.MeshFedConfig

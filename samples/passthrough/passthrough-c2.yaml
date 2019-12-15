@@ -11,5 +11,5 @@ spec:
   use_egress_gateway: false
   use_ingress_gateway: true
   ingress_gateway_selector:
-    istio: ingressgateway
+    emcee: ingressgateway
   ingress_gateway_port: 15443
