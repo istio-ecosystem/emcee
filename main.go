@@ -17,6 +17,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	istioclient "github.ibm.com/istio-research/mc2019/istio-client"
@@ -98,4 +99,6 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+
+	fmt.Printf("Terminating Emcee manager\n")
 }

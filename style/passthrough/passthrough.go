@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // Passthrough has clients for k8s and Istio
@@ -147,15 +148,33 @@ func (bp *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.Servic
 		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
 	}
 
-	svc := passthroughBindingService(sb, mfc)
-	if svc == nil {
+	goalSvc := passthroughBindingService(sb, mfc)
+	if goalSvc == nil {
 		log.Infof("Could not generate Remote Cluster ingress Service")
 		return fmt.Errorf("passthrough controller could not generate Remote Cluster ingress Service")
 	}
-	err = bp.cli.Create(ctx, svc)
-	if err := logAndCheckExistAndUpdate(ctx, bp, svc, err, "Remote Cluster ingress Service", "TODO"); err != nil {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      goalSvc.GetName(),
+			Namespace: goalSvc.GetNamespace(),
+		},
+	}
+	or, err := controllerutil.CreateOrUpdate(ctx, bp.cli, svc, func() error {
+		svc.ObjectMeta.Labels = goalSvc.Labels
+		svc.ObjectMeta.OwnerReferences = goalSvc.ObjectMeta.OwnerReferences
+		// Update the Spec fields WITHOUT clearing svc.Spec.ClusterIP
+		svc.Spec.Ports = goalSvc.Spec.Ports
+		svc.Spec.SessionAffinity = goalSvc.Spec.SessionAffinity
+		svc.Spec.Type = goalSvc.Spec.Type
+		return nil
+	})
+	if err != nil {
 		return err
 	}
+
+	log.Infof("%s %s %s", or,
+		"Remote Cluster ingress Service",
+		renderName(&svc.ObjectMeta))
 
 	return nil
 }
@@ -479,4 +498,8 @@ func boundLocalPort(sb *mmv1.ServiceBinding) uint32 {
 		return sb.Spec.Port
 	}
 	return 80
+}
+
+func renderName(om *metav1.ObjectMeta) string {
+	return fmt.Sprintf("%s.%s", om.GetName(), om.GetNamespace())
 }
