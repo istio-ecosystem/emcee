@@ -16,7 +16,6 @@ import (
 	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,23 +32,6 @@ const (
 //		"istio": "ingressgateway",
 //	}
 //)
-
-// logAndCheckExistAndUpdate tries to update the k8s resource if the resource already exists; it retuens err if it fails
-func logAndCheckExistAndUpdate(ctx context.Context, pt *Passthrough, object runtime.Object, err error, title, name string) error {
-	if err != nil {
-		if !mfutil.ErrorAlreadyExists(err) {
-			log.Infof("Failed to create %s %s: %v", title, name, err)
-			return err
-		}
-		err := pt.cli.Update(ctx, object)
-		if err != nil {
-			log.Infof("Failed to update %s %s: %v", title, name, err)
-		}
-		return err
-	}
-	log.Infof("Created %s %s", title, name)
-	return nil
-}
 
 func createGateway(r istioclient.Interface, namespace string, gateway *v1alpha3.Gateway) (*v1alpha3.Gateway, error) {
 	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(gateway)

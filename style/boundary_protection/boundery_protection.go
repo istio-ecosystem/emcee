@@ -354,7 +354,11 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 	or, err := controllerutil.CreateOrUpdate(ctx, bp.cli, svcRemoteCluster, func() error {
 		svcRemoteCluster.ObjectMeta.Labels = goalSvcRemoteCluster.Labels
 		svcRemoteCluster.ObjectMeta.OwnerReferences = goalSvcRemoteCluster.ObjectMeta.OwnerReferences
-		svcRemoteCluster.Spec = goalSvcRemoteCluster.Spec
+		// Update the Spec fields WITHOUT clearing .Spec.ClusterIP
+		svcRemoteCluster.Spec.Ports = goalSvcRemoteCluster.Spec.Ports
+		svcRemoteCluster.Spec.SessionAffinity = goalSvcRemoteCluster.Spec.SessionAffinity
+		svcRemoteCluster.Spec.Type = goalSvcRemoteCluster.Spec.Type
+		svcRemoteCluster.Spec.ExternalName = goalSvcRemoteCluster.Spec.ExternalName
 		return nil
 	})
 	if err != nil {
@@ -372,18 +376,52 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
-	svcLocalFacade := boundaryProtectionLocalServiceFacade(localNamespace, sb, mfc)
-	err = bp.cli.Create(ctx, &svcLocalFacade)
-	if err := logAndCheckExistAndUpdate(ctx, bp, &svcLocalFacade, err, "Local Service facade Service", renderName(&svcLocalFacade.ObjectMeta)); err != nil {
+	goalSvcLocalFacade := boundaryProtectionLocalServiceFacade(localNamespace, sb, mfc)
+	svcLocalFacade := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      goalSvcLocalFacade.GetName(),
+			Namespace: goalSvcLocalFacade.GetNamespace(),
+		},
+	}
+	or, err = controllerutil.CreateOrUpdate(ctx, bp.cli, svcLocalFacade, func() error {
+		svcLocalFacade.ObjectMeta.Labels = goalSvcLocalFacade.Labels
+		svcLocalFacade.ObjectMeta.OwnerReferences = goalSvcLocalFacade.ObjectMeta.OwnerReferences
+		// Update the Spec fields WITHOUT clearing .Spec.ClusterIP
+		svcLocalFacade.Spec.Ports = goalSvcLocalFacade.Spec.Ports
+		svcLocalFacade.Spec.SessionAffinity = goalSvcLocalFacade.Spec.SessionAffinity
+		svcLocalFacade.Spec.Type = goalSvcLocalFacade.Spec.Type
+		return nil
+	})
+	if err != nil {
 		return err
 	}
+	log.Infof("%s %s %s", or,
+		"Local Service facade Service",
+		renderName(&svcLocalFacade.ObjectMeta))
 
 	comboName := serviceIntermeshName(sb.Spec.Name)
-	svcLocalEgress := boundaryProtectionLocalServiceEgress(comboName, localNamespace, sb, mfc)
-	err = bp.cli.Create(ctx, &svcLocalEgress)
-	if err := logAndCheckExistAndUpdate(ctx, bp, &svcLocalEgress, err, "Local Service egress Service", renderName(&svcLocalEgress.ObjectMeta)); err != nil {
+	goalSvcLocalEgress := boundaryProtectionLocalServiceEgress(comboName, localNamespace, sb, mfc)
+	svcLocalEgress := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      goalSvcLocalEgress.GetName(),
+			Namespace: goalSvcLocalEgress.GetNamespace(),
+		},
+	}
+	or, err = controllerutil.CreateOrUpdate(ctx, bp.cli, svcLocalEgress, func() error {
+		svcLocalEgress.ObjectMeta.Labels = goalSvcLocalEgress.Labels
+		svcLocalEgress.ObjectMeta.OwnerReferences = goalSvcLocalEgress.ObjectMeta.OwnerReferences
+		// Update the Spec fields WITHOUT clearing .Spec.ClusterIP
+		svcLocalEgress.Spec.Ports = goalSvcLocalEgress.Spec.Ports
+		svcLocalEgress.Spec.SessionAffinity = goalSvcLocalEgress.Spec.SessionAffinity
+		svcLocalEgress.Spec.Type = goalSvcLocalEgress.Spec.Type
+		return nil
+	})
+	if err != nil {
 		return err
 	}
+	log.Infof("%s %s %s", or,
+		"Local Service egress Service",
+		renderName(&svcLocalEgress.ObjectMeta))
 
 	svcLocalGateway := boundaryProtectionLocalServiceGateway(comboName, targetNamespace, sb, mfc)
 	_, err = createGateway(bp.istioCli, targetNamespace, &svcLocalGateway)

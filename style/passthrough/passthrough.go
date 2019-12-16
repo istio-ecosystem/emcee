@@ -350,7 +350,7 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 	if !mfc.Spec.UseIngressGateway {
 		return nil
 	}
-	name := sb.Spec.Name
+	name := boundLocalName(sb)
 	namespace := sb.Spec.Namespace
 	port := boundLocalPort(sb)
 
@@ -371,7 +371,7 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 			Kind: "ServiceEntry",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceRemoteName(mfc.GetName(), sb.GetName()),
+			Name:      serviceRemoteName(mfc.GetName(), name),
 			Namespace: namespace,
 			Labels: map[string]string{
 				"mesh": mfc.GetName(),
@@ -381,6 +381,7 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 		Spec: v1alpha3.ServiceEntrySpec{
 			ServiceEntry: istiov1alpha3.ServiceEntry{
 				Hosts: []string{
+					// Note that this must be the local name, even if a DestinationRule has altered the SNI (tested in Istio 1.4.0)
 					fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace), // TODO intermeshNamespace
 				},
 				Ports: []*istiov1alpha3.Port{
@@ -412,7 +413,8 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 
 	name := sb.Spec.Name
 	namespace := sb.Spec.Namespace
-	svcName := fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace) // TODO intermeshNamespace
+	svcName := fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)                    // TODO intermeshNamespace
+	svcLocalName := fmt.Sprintf("%s.%s.svc.cluster.local", boundLocalName(sb), namespace) // TODO intermeshNamespace
 
 	return &v1alpha3.DestinationRule{
 		TypeMeta: metav1.TypeMeta{
@@ -428,7 +430,7 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 		},
 		Spec: v1alpha3.DestinationRuleSpec{
 			DestinationRule: istiov1alpha3.DestinationRule{
-				Host: svcName,
+				Host: svcLocalName,
 				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
 					PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
 						&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
@@ -454,7 +456,7 @@ func passthroughBindingService(sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig)
 	if !mfc.Spec.UseIngressGateway {
 		return nil
 	}
-	name := sb.Spec.Name // TODO need this? serviceIntermeshName(sb.Spec.Name)
+	name := boundLocalName(sb) // TODO need this? serviceIntermeshName(sb.Spec.Name)
 	port := boundLocalPort(sb)
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -502,4 +504,11 @@ func boundLocalPort(sb *mmv1.ServiceBinding) uint32 {
 
 func renderName(om *metav1.ObjectMeta) string {
 	return fmt.Sprintf("%s.%s", om.GetName(), om.GetNamespace())
+}
+
+func boundLocalName(sb *mmv1.ServiceBinding) string {
+	if sb.Spec.Alias != "" {
+		return sb.Spec.Alias
+	}
+	return sb.Spec.Name
 }

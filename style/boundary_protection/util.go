@@ -7,14 +7,11 @@
 package boundary_protection
 
 import (
-	"context"
-
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"github.ibm.com/istio-research/mc2019/style"
 	mfutil "github.ibm.com/istio-research/mc2019/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/pkg/log"
 )
@@ -29,25 +26,6 @@ var (
 		style.ProjectID: "ingressgateway",
 	}
 )
-
-// logAndCheckExistAndUpdate tries to update the k8s resource if the resource already exists; it retuens err if it fails
-func logAndCheckExistAndUpdate(ctx context.Context, bp *boundaryProtection, object runtime.Object, err error, title, name string) error {
-	if err != nil {
-		if !mfutil.ErrorAlreadyExists(err) {
-			log.Infof("Failed to create %s %s: %v", title, name, err)
-			return err
-		}
-		// TODO client.Update doesn't work with K8s v1.Service, follow the
-		// pattern controllerutil.CreateOrUpdate instead.
-		err := bp.cli.Update(ctx, object)
-		if err != nil {
-			log.Infof("Failed to update %s %s: %v", title, name, err)
-		}
-		return err
-	}
-	log.Infof("Created %s %s", title, name)
-	return nil
-}
 
 func createGateway(r istioclient.Interface, namespace string, gateway *v1alpha3.Gateway) (*v1alpha3.Gateway, error) {
 	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(gateway)
