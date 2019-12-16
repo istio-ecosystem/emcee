@@ -7,8 +7,9 @@ metadata:
     secret: cluster1
     fed-config: passthrough
 spec:
+  mode: Passthrough
   use_egress_gateway: false
   use_ingress_gateway: true
   ingress_gateway_selector:
-    emcee: ingressgateway
+    istio: ingressgateway
   ingress_gateway_port: 15443

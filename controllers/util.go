@@ -72,8 +72,10 @@ func GetMeshFedConfig(ctx context.Context, r client.Client, mfcSelector map[stri
 // GetMeshFedConfigReconciler creates a MeshFedConfig implementation specific to the MeshFedStyle
 func GetMeshFedConfigReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.MeshFedConfig, error) {
 	if strings.ToUpper(mfc.Spec.Mode) == ModeBoundary {
+		log.Infof("Creating NewBoundaryProtectionMeshFedConfig reconciler for %s %s", mfc.GetObjectKind().GroupVersionKind().Kind, mfc.GetName())
 		return boundary_protection.NewBoundaryProtectionMeshFedConfig(cli, istioCli), nil
 	} else if strings.ToUpper(mfc.Spec.Mode) == ModePassthrough {
+		log.Infof("Creating NewPassthroughMeshFedConfig reconciler for %s %s", mfc.GetObjectKind().GroupVersionKind().Kind, mfc.GetName())
 		return passthrough.NewPassthroughMeshFedConfig(cli, istioCli), nil
 	}
 
@@ -84,14 +86,13 @@ func GetMeshFedConfigReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, isti
 func GetBindingReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.ServiceBinder, error) {
 	// TODO: Detect if mfc refers to a Vadim-style reconciler
 	if strings.ToUpper(mfc.Spec.Mode) == ModeBoundary {
+		log.Infof("Creating NewBoundaryProtectionServiceBinder reconciler for %s %s", mfc.GetObjectKind().GroupVersionKind().Kind, mfc.GetName())
 		return boundary_protection.NewBoundaryProtectionServiceBinder(cli, istioCli), nil
 	} else if strings.ToUpper(mfc.Spec.Mode) == ModePassthrough {
-		return passthrough.NewPassthroughServiceBinder(cli, istioCli), nil
-	} else if mfc.Spec.UseEgressGateway {
-		return boundary_protection.NewBoundaryProtectionServiceBinder(cli, istioCli), nil
-	} else if mfc.Spec.UseIngressGateway {
+		log.Infof("Creating NewPassthroughServiceBinder reconciler for %s %s", mfc.GetObjectKind().GroupVersionKind().Kind, mfc.GetName())
 		return passthrough.NewPassthroughServiceBinder(cli, istioCli), nil
 	}
+
 	return nil, fmt.Errorf("No handler for %v style", mfc)
 }
 
@@ -99,12 +100,10 @@ func GetBindingReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli i
 func GetExposureReconciler(mfc *mmv1.MeshFedConfig, cli client.Client, istioCli istioclient.Interface) (style.ServiceExposer, error) {
 	// TODO: Detect if mfc refers to a Vadim-style reconciler
 	if strings.ToUpper(mfc.Spec.Mode) == ModeBoundary {
+		log.Infof("Creating NewBoundaryProtectionServiceExposer reconciler for %s %s", mfc.GetObjectKind().GroupVersionKind().Kind, mfc.GetName())
 		return boundary_protection.NewBoundaryProtectionServiceExposer(cli, istioCli), nil
 	} else if strings.ToUpper(mfc.Spec.Mode) == ModePassthrough {
-		return passthrough.NewPassthroughServiceExposer(cli, istioCli), nil
-	} else if mfc.Spec.UseEgressGateway {
-		return boundary_protection.NewBoundaryProtectionServiceExposer(cli, istioCli), nil
-	} else if mfc.Spec.UseIngressGateway {
+		log.Infof("Creating NewPassthroughServiceExposer reconciler for %s %s", mfc.GetObjectKind().GroupVersionKind().Kind, mfc.GetName())
 		return passthrough.NewPassthroughServiceExposer(cli, istioCli), nil
 	}
 	return nil, fmt.Errorf("No handler for %v style", mfc)

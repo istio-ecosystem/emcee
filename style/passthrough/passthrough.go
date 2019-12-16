@@ -255,7 +255,7 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 						},
 					},
 				},
-				Selector: mfc.Spec.IngressGatewaySelector, // TODO: default to: map[string]string {"emcee": "ingressgateway}",
+				Selector: mfc.Spec.IngressGatewaySelector, // TODO: default to: map[string]string {"istio": "ingressgateway}",
 			},
 		},
 	}, nil
