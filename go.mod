@@ -5,22 +5,44 @@ go 1.12
 replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
 
 require (
+	cloud.google.com/go v0.50.0 // indirect
 	github.com/aspenmesh/istio-client-go v0.0.0-20191010215625-4de6e89009c4
-	github.com/go-logr/logr v0.1.0
-	github.com/golang/protobuf v1.3.2
+	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/go-logr/zapr v0.1.1 // indirect
+	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/hashicorp/go-multierror v1.0.0
-	github.com/onsi/ginkgo v1.8.0
-	github.com/onsi/gomega v1.5.0
-	gopkg.in/yaml.v2 v2.2.4
-	istio.io/api v0.0.0-20191015210738-bfa91e88abf1
-	istio.io/istio v0.0.0-20191021163937-deccffd2c961
-	istio.io/pkg v0.0.0-20191015053120-592d80277a1b
-	k8s.io/api v0.0.0
-	k8s.io/apiextensions-apiserver v0.0.0
-	k8s.io/apimachinery v0.0.0
+	github.com/imdario/mergo v0.3.8 // indirect
+	github.com/json-iterator/go v1.1.8 // indirect
+	github.com/onsi/ginkgo v1.10.3
+	github.com/onsi/gomega v1.7.1
+	github.com/prometheus/client_golang v1.2.1 // indirect
+	github.com/prometheus/client_model v0.0.0-20191202183732-d1d2010b5bee // indirect
+	github.com/prometheus/procfs v0.0.8 // indirect
+	go.uber.org/atomic v1.5.1 // indirect
+	go.uber.org/multierr v1.4.0 // indirect
+	go.uber.org/zap v1.13.0 // indirect
+	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413 // indirect
+	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
+	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6 // indirect
+	golang.org/x/sys v0.0.0-20191218084908-4a24b4065292 // indirect
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
+	golang.org/x/tools v0.0.0-20191218040434-6f9e13bbec44 // indirect
+	google.golang.org/appengine v1.6.5 // indirect
+	google.golang.org/grpc v1.26.0 // indirect
+	gopkg.in/yaml.v2 v2.2.7
+	istio.io/api v0.0.0-20191218031825-7bafbd24c11c
+	istio.io/gogo-genproto v0.0.0-20191212213402-78a529a42cd8 // indirect
+	istio.io/pkg v0.0.0-20191218040524-1474f181aa76
+	k8s.io/api v0.17.0
+	k8s.io/apiextensions-apiserver v0.17.0 // indirect
+	k8s.io/apimachinery v0.17.0
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
+	k8s.io/klog v1.0.0 // indirect
+	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a // indirect
+	k8s.io/utils v0.0.0-20191218082557-f07c713de883 // indirect
 	sigs.k8s.io/controller-runtime v0.2.2
-	sigs.k8s.io/controller-tools v0.2.1 // indirect
+	sigs.k8s.io/testing_frameworks v0.1.2 // indirect
 )
 
 replace k8s.io/kubernetes => k8s.io/kubernetes v1.15.0
