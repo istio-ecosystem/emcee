@@ -43,7 +43,6 @@ kubectl --context $CLUSTER2 wait --for=condition=available --timeout=60s deploym
 Next, we will expose the service
 
 ``` bash
-kubectl --context $CLUSTER2 apply -f samples/limited-trust/helloworld.yaml
 kubectl --context $CLUSTER2 apply -f samples/limited-trust/helloworld-expose.yaml
 ```
 
@@ -114,6 +113,10 @@ kubectl --context $CLUSTER2 delete ns limited-trust
 kubectl --context $CLUSTER2 delete ns passthrough
 kubectl --context $CLUSTER1 delete servicebinding helloworld
 kubectl --context $CLUSTER1 delete servicebinding holaworld
+
+kubectl --context $CLUSTER2 delete -f samples/limited-trust/helloworld.yaml
+kubectl --context $CLUSTER2 delete -f samples/passthrough/holamundo.yaml
+kubectl --context $CLUSTER1 delete pod cli1
 ```
 
 Then shut down the two controllers.

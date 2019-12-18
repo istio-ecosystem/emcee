@@ -46,3 +46,7 @@ kubectl --context $CLUSTER2 delete serviceexposure helloworld
 kubectl --context $CLUSTER2 delete meshfedconfig limited-trust
 kubectl --context $CLUSTER1 delete servicebinding helloworld
 kubectl --context $CLUSTER1 delete meshfedconfig limited-trust
+
+kubectl --context $CLUSTER2 delete -f samples/limited-trust/helloworld.yaml
+kubectl --context $CLUSTER2 delete -f samples/passthrough/holamundo.yaml
+kubectl --context $CLUSTER1 delete pod cli1
