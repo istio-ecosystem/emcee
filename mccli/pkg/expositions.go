@@ -25,7 +25,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
+	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 )
 
 // NewClient creates a client that can read mmv1 things

@@ -1,6 +1,6 @@
 # Samples: Passthrough
 
-Samples to be used demonstrating mc2019
+Samples to be used demonstrating emcee
 
 ## Developer instructions
 

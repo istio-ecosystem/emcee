@@ -1,4 +1,4 @@
-# mc2019
+# emcee
 
 A proof of concept that demonstrates high-level Istio multi-mesh.
 

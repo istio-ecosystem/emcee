@@ -21,7 +21,7 @@ import (
 
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
-	mfutil "github.ibm.com/istio-research/mc2019/util"
+	mfutil "github.com/istio-ecosystem/emcee/util"
 	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

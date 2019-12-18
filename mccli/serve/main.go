@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	mcCliPkg "github.ibm.com/istio-research/mc2019/mccli/pkg"
+	mcCliPkg "github.com/istio-ecosystem/emcee/mccli/pkg"
 )
 
 type openApi struct {

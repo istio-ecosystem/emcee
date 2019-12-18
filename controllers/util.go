@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"strings"
 
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
-	"github.ibm.com/istio-research/mc2019/style"
-	"github.ibm.com/istio-research/mc2019/style/boundary_protection"
-	"github.ibm.com/istio-research/mc2019/style/passthrough"
+	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
+	"github.com/istio-ecosystem/emcee/style"
+	"github.com/istio-ecosystem/emcee/style/boundary_protection"
+	"github.com/istio-ecosystem/emcee/style/passthrough"
 
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"

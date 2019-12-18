@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"os"
 
-	istioclient "github.ibm.com/istio-research/mc2019/istio-client"
+	istioclient "github.com/istio-ecosystem/emcee/istio-client"
 
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
-	"github.ibm.com/istio-research/mc2019/controllers"
+	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
+	"github.com/istio-ecosystem/emcee/controllers"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"

@@ -18,7 +18,7 @@ package controllers
 import (
 	"context"
 
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
+	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"

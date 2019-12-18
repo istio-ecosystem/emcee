@@ -23,7 +23,7 @@ import (
 	// This next line lets us use IBM Kubernetes Service
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
-	mcCliPkg "github.ibm.com/istio-research/mc2019/mccli/pkg"
+	mcCliPkg "github.com/istio-ecosystem/emcee/mccli/pkg"
 )
 
 func main() {

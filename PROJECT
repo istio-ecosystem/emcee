@@ -1,6 +1,6 @@
 version: "2"
 domain: ibm.istio.io
-repo: github.ibm.com/istio-research/mc2019
+repo: github.com/istio-ecosystem/emcee
 resources:
 - group: mm
   version: v1

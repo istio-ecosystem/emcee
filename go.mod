@@ -1,4 +1,4 @@
-module github.ibm.com/istio-research/mc2019
+module github.com/istio-ecosystem/emcee
 
 go 1.12
 

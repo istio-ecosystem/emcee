@@ -18,7 +18,7 @@ package style
 import (
 	"context"
 
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
+	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 )
 
 const (

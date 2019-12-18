@@ -24,9 +24,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.ibm.com/istio-research/mc2019/controllers"
+	"github.com/istio-ecosystem/emcee/controllers"
 
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
+	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 )
 
 // simple mock-up of OpenAPI for proof-of-concept

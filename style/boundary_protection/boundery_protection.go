@@ -23,9 +23,9 @@ import (
 	"strconv"
 	"strings"
 
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
-	"github.ibm.com/istio-research/mc2019/style"
-	mfutil "github.ibm.com/istio-research/mc2019/util"
+	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
+	"github.com/istio-ecosystem/emcee/style"
+	mfutil "github.com/istio-ecosystem/emcee/util"
 
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
@@ -603,7 +603,7 @@ func boundaryProtectionEgressDeployment(name, namespace string, labels map[strin
 					Labels: labels,
 					Annotations: map[string]string{
 						"sidecar.istio.io/inject": "false",
-						"heritage":                "mc2019",
+						"heritage":                "emcee",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -680,7 +680,7 @@ func boundaryProtectionIngressDeployment(name, namespace string, labels map[stri
 					Labels: labels,
 					Annotations: map[string]string{
 						"sidecar.istio.io/inject": "false",
-						"heritage":                "mc2019",
+						"heritage":                "emcee",
 					},
 				},
 				Spec: corev1.PodSpec{

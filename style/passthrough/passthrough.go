@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	mmv1 "github.ibm.com/istio-research/mc2019/api/v1"
-	"github.ibm.com/istio-research/mc2019/style"
+	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
+	"github.com/istio-ecosystem/emcee/style"
 	"istio.io/pkg/log"
 
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"

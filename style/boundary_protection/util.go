@@ -18,8 +18,8 @@ package boundary_protection
 import (
 	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
-	"github.ibm.com/istio-research/mc2019/style"
-	mfutil "github.ibm.com/istio-research/mc2019/util"
+	"github.com/istio-ecosystem/emcee/style"
+	mfutil "github.com/istio-ecosystem/emcee/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/pkg/log"
