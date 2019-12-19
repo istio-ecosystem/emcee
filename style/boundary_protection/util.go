@@ -55,12 +55,16 @@ func createGateway(r istioclient.Interface, namespace string, gateway *v1alpha3.
 func createVirtualService(r istioclient.Interface, namespace string, vs *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
 	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
 	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
+	if err == nil {
+		log.Warnf("Created Istio virtual service %s/%s", vs.GetNamespace(), vs.GetName())
+	}
 	if mfutil.ErrorAlreadyExists(err) {
 		updatedVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(vs.GetName(), metav1.GetOptions{})
 		if err != nil {
 			log.Warnf("Failed updating Istio virtual service %v: %v", vs.GetName(), err)
 			return updatedVirtualService, err
 		}
+		log.Warnf("Updated Istio virtual service %s/%s", vs.GetNamespace(), vs.GetName())
 		updatedVirtualService.Spec = vs.Spec
 		updatedVirtualService, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(updatedVirtualService)
 		return updatedVirtualService, err
