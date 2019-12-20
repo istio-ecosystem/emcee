@@ -460,6 +460,7 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		return err
 	}
 
+	log.Infof("Successfully reconciled ServiceBinding %s/%s", sb.GetNamespace(), sb.GetName())
 	return nil
 }
 
