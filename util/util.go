@@ -27,6 +27,8 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -190,4 +192,20 @@ func GetTlsSecret(ctx context.Context, c client.Client, tlsSelector client.Match
 	} else {
 		return tlsSecretList.Items[0], fmt.Errorf("Did not find a single secret")
 	}
+}
+
+// GetRestConfig returns a REST configuration for talking to API server based on KUBECONFIG etc
+func GetRestConfig(kubeconfig, context string) (*rest.Config, error) {
+	// Normally we would just call "config.GetConfigWithContext(context)"; this
+	// gives us the ability to use multiple files separated by colons.
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
+	loadingRules.ExplicitPath = kubeconfig
+	configOverrides := &clientcmd.ConfigOverrides{
+		ClusterDefaults: clientcmd.ClusterDefaults,
+		CurrentContext:  context,
+	}
+
+	cfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+	return cfg.ClientConfig()
 }
