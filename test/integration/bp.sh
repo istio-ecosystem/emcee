@@ -289,7 +289,7 @@ main() {
     echo
 
     kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/limited-trust/holamundo.yaml
-    kubectl --context $CLUSTER2 delete -f $BASEDIR/samples/limited-trust/helloworld-expose.yaml
+    kubectl --context $CLUSTER2 delete ServiceExposition helloworld
     sleep 1
     kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/limited-trust/helloworld-expose-with-alias.yaml
     sleep 5
@@ -313,6 +313,29 @@ main() {
     echo =======================================================
     echo
 
+    kubectl --context $CLUSTER1 delete ServiceBinding helloworld
+    sleep 1
+    cat $BASEDIR/samples/limited-trust/helloworld-binding-with-alias.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
+    sleep 5
+
+    # Have the sleep pod test
+    SLEEP_POD=cli1
+    Echo using Sleep pod $SLEEP_POD on $CLUSTER1
+    CURL_CMD="kubectl --context $CLUSTER1 exec -it $SLEEP_POD -- curl --silent helloworldyall:5000/hello -w '%{http_code}' -o /dev/null"
+    set +o errexit
+    REMOTE_OUTPUT=$($CURL_CMD)
+    set -o errexit
+    if [ "$REMOTE_OUTPUT" != "'200'" ]; then
+        echo Expected 200 but got $REMOTE_OUTPUT executing
+        echo $CURL_CMD
+        exit 7
+    fi
+    echo
+    echo =======================================================
+    echo Bind worked; test with
+    echo $CURL_CMD
+    echo =======================================================
+    echo
 }
 
 trap shutdowns EXIT

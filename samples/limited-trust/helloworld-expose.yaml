@@ -1,7 +1,7 @@
 apiVersion: mm.ibm.istio.io/v1
 kind: ServiceExposition
 metadata:
-  name: se1
+  name: helloworld
 spec:
   mesh_fed_config_selector:
     fed-config: limited-trust
