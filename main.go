@@ -24,11 +24,12 @@ import (
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 	"github.com/istio-ecosystem/emcee/controllers"
+	mfutil "github.com/istio-ecosystem/emcee/util"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
@@ -57,7 +58,7 @@ func main() {
 
 	ctrl.SetLogger(zap.Logger(true))
 
-	cfg, err := config.GetConfigWithContext(context)
+	cfg, err := mfutil.GetRestConfig("", context)
 	if err != nil {
 		setupLog.Error(err, "unable to read config", "context", context)
 		os.Exit(1)
