@@ -1271,6 +1271,9 @@ func servicePathBinding(sb *mmv1.ServiceBinding) string {
 }
 
 func servicePathExposure(se *mmv1.ServiceExposition) string {
+	if se.Spec.Alias != "" {
+		return fmt.Sprintf("/%s/%s/", se.GetNamespace(), se.Spec.Alias)
+	}
 	return fmt.Sprintf("/%s/%s/", se.GetNamespace(), se.Spec.Name)
 }
 
