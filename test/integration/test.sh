@@ -36,6 +36,20 @@ if [ -z "$1" ]
   else
     MODE=$1
 fi
+if [[ $MODE != "limited-trust" && $MODE != "passthrough" ]];then
+    echo "*** " $MODE " not an accepted mode"
+    exit 1
+fi
+
+
+if [[ $MODE = "passthrough" ]];then
+    if ! hash istioctl 2>/dev/null
+    then
+        echo "*** istioctl not found in PATH"
+       exit 1
+    fi
+fi
+
 
 preconditions() {
     # Verify I don't already have controllers who have grabbed the port
@@ -57,10 +71,10 @@ remove_finalizers() {
     # Remove finalizers, so that deletes don't block forever if controller isn't running
     for type in meshfedconfig serviceexposition servicebinding; do
         set +o errexit
-        kubectl --context $ctx get $type --all-namespaces -o custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace --no-headers > /tmp/crds.txt
+        kubectl --context $ctx get $type --all-namespaces -o custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace --no-headers > $TMPDIR/crds.txt
         set -o errexit
-        if [ -s /tmp/crds.txt ]; then
-            cat /tmp/crds.txt | \
+        if [ -s $TMPDIR/crds.txt ]; then
+            cat $TMPDIR/crds.txt | \
                 awk -v ctx=$ctx -v type=$type -v squote="'" '{ print "kubectl --context " ctx " -n " $2 " patch " type " " $1 " --type=merge --patch " squote "{\"metadata\": {\"finalizers\": []}}" squote }' | \
                 xargs -0 bash -c
         fi
@@ -154,26 +168,49 @@ secrets_limited-trust() {
     if [ $1 = 1 ]; then 
         # Try to invoke exposed service from here (where this script is running)
         kubectl --context $CLUSTER -n limited-trust get secret limited-trust
-        kubectl --context $CLUSTER -n limited-trust get secret limited-trust --output jsonpath="{.data.tls\.key}" | base64 -D > /tmp/c1.example.com.key
-        kubectl --context $CLUSTER -n limited-trust get secret limited-trust --output jsonpath="{.data.tls\.crt}" | base64 -D > /tmp/c1.example.com.crt
-        kubectl --context $CLUSTER -n limited-trust get secret limited-trust --output jsonpath="{.data.example\.com\.crt}" | base64 -D > /tmp/example.com.crt
+        kubectl --context $CLUSTER -n limited-trust get secret limited-trust --output jsonpath="{.data.tls\.key}" | base64 -D > $TMPDIR/c1.example.com.key
+        kubectl --context $CLUSTER -n limited-trust get secret limited-trust --output jsonpath="{.data.tls\.crt}" | base64 -D > $TMPDIR/c1.example.com.crt
+        kubectl --context $CLUSTER -n limited-trust get secret limited-trust --output jsonpath="{.data.example\.com\.crt}" | base64 -D > $TMPDIR/example.com.crt
     fi
 }
+
+end_to_end(){
+    # Have the sleep pod test
+    SVC_NAME=$1
+    SLEEP_POD=cli1
+    Echo using Sleep pod $SLEEP_POD on $CLUSTER1
+    CURL_CMD="kubectl --context $CLUSTER1 exec -it $SLEEP_POD -- curl --silent ${SVC_NAME}:5000/hello -w '%{http_code}' -o /dev/null"
+    set +o errexit
+    REMOTE_OUTPUT=$($CURL_CMD)
+    set -o errexit
+    if [ "$REMOTE_OUTPUT" != "'200'" ]; then
+        echo Expected 200 but got $REMOTE_OUTPUT executing
+        echo $CURL_CMD
+        exit 7
+    fi
+    echo
+    echo =======================================================
+    echo Bind worked; test with
+    echo $CURL_CMD
+    echo =======================================================
+    echo
+}
+
 
 main() {
     preconditions
 
     for i in {2..1}
     do
-        cleanup 2
-        secrets_$MODE 2
+        cleanup $i
+        secrets_$MODE $i
     done
 
     # ------------------------ Exposing Cluster ----------------------
     startup2
 
     # Deploy experiment
-    kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/$MODE/helloworld.yaml
+    kubectl --context $CLUSTER2 apply -f $BASEDIR/test/integration/common/helloworld.yaml
 
     # Verify the controller is still running
     if ps -p $MANAGER_2_PID > /dev/null ; then
@@ -230,8 +267,8 @@ main() {
 
     if [ "$MODE" = "limited-trust" ]; then    
         CURL_CMD="curl --resolve c2.example.com:$CLUSTER2_SECURE_INGRESS_PORT:$CLUSTER2_INGRESS_HOST \
-            --cacert /tmp/example.com.crt --key /tmp/c1.example.com.key \
-            --cert /tmp/c1.example.com.crt \
+            --cacert ${TMPDIR}/example.com.crt --key ${TMPDIR}/c1.example.com.key \
+            --cert ${TMPDIR}/c1.example.com.crt \
             https://c2.example.com:$CLUSTER2_SECURE_INGRESS_PORT/default/helloworld/hello \
             -w '%{http_code}' -o /dev/null"
         set +o errexit
@@ -285,27 +322,24 @@ main() {
         sleep 1
     done
 
-    # TODO REMOVE
+    # Simple end to end test
     sleep 5
+    end_to_end  "helloworld"
 
-    # Have the sleep pod test
-    SLEEP_POD=cli1
-    Echo using Sleep pod $SLEEP_POD on $CLUSTER1
-    CURL_CMD="kubectl --context $CLUSTER1 exec -it $SLEEP_POD -- curl --silent helloworld:5000/hello -w '%{http_code}' -o /dev/null"
-    set +o errexit
-    REMOTE_OUTPUT=$($CURL_CMD)
-    set -o errexit
-    if [ "$REMOTE_OUTPUT" != "'200'" ]; then
-        echo Expected 200 but got $REMOTE_OUTPUT executing
-        echo $CURL_CMD
-        exit 7
-    fi
-    echo
-    echo =======================================================
-    echo Bind worked; test with
-    echo $CURL_CMD
-    echo =======================================================
-    echo
+    # End to end test with alias in expose side
+    kubectl --context $CLUSTER2 apply -f $BASEDIR/test/integration/common/holamundo.yaml
+    kubectl --context $CLUSTER2 delete ServiceExposition helloworld
+    sleep 1
+    kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/$MODE/helloworld-expose-with-alias.yaml
+    sleep 5
+    end_to_end  "helloworld"
+
+    # End to end test with alias in bind side
+    kubectl --context $CLUSTER1 delete ServiceBinding helloworld
+    sleep 1
+    cat $BASEDIR/samples/$MODE/helloworld-binding-with-alias.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
+    sleep 5
+    end_to_end "helloworldyall"
 
 }
 
