@@ -142,18 +142,6 @@ secrets_passthrough() {
     kubectl --context $CLUSTER  delete secret istio.default
 
     kubectl --context $CLUSTER  create namespace passthrough  2> /dev/null || true
-
-}
-
-limited_trust2() {
-    # Deploy secrets to be used during expose experiments
-    kubectl --context $CLUSTER2 delete ns limited-trust 2> /dev/null || true
-    until kubectl --context $CLUSTER2 create ns limited-trust ; do
-        echo Waiting creating limited-trust namespace
-        sleep 1
-    done
-    kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/limited-trust/secret-c2.yaml
-
 }
 
 secrets_limited-trust() {
@@ -174,8 +162,14 @@ secrets_limited-trust() {
 
 main() {
     preconditions
-    cleanup 2
-    secrets_$MODE 2
+
+    for i in {2..1}
+    do
+        cleanup 2
+        secrets_$MODE 2
+    done
+
+    # ------------------------ Exposing Cluster ----------------------
     startup2
 
     # Deploy experiment
@@ -197,23 +191,19 @@ main() {
     done
 
     # TODO remove
-    sleep 10
+    sleep 5
 
     # Configure the mesh
     kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/$MODE/$MODE-c2.yaml
 
     # TODO remove
-    sleep 10
+    sleep 5
 
     # Wait for the experiment helloworld (producer) to be up
     kubectl --context $CLUSTER2 wait --for=condition=available --timeout=60s deployment/helloworld-v1
 
     # Expose helloworld
     kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/$MODE/helloworld-expose.yaml
-
-    cleanup 1
-    secrets_$MODE 1
-
 
     if [ "$MODE" = "limited-trust" ]; then
         # Wait for the exposure to be affected
@@ -223,8 +213,7 @@ main() {
         done
         # Where is the gateway for traffic to the exposed service?
         CLUSTER2_INGRESS=$(kubectl --context $CLUSTER2 get svc -n limited-trust --selector mesh=limited-trust,role=ingress-svc --output jsonpath="{.items[0].status.loadBalancer.ingress[0].ip}")
-    fi
-    
+    fi    
     if [ "$MODE" = "passthrough" ]; then
         CLUSTER2_INGRESS=$(kubectl --context $CLUSTER2 get svc -n istio-system istio-ingressgateway --output jsonpath="{.status.loadBalancer.ingress[0].ip}")
     fi
@@ -261,8 +250,7 @@ main() {
         echo
     fi
 
-
-    # Clean up $CLUSTER1 enough that we can put a fresh secret on it
+    # ------------------------ Binding Cluster ----------------------
     startup1
 
     # Deploy experiment consumer
@@ -286,10 +274,6 @@ main() {
     # Wait for the experiment client (consumer) to be up
     kubectl --context $CLUSTER1 wait --for=condition=ready --timeout=60s pod/cli1
 
-    # Configure the meshes
-    if [ "$MODE" = "limited-trust" ]; then
-        kubectl --context $CLUSTER1 -n $MODE get secret $MODE  # TODO remove MBMBMBMBMBMBMBMBMBMB
-    fi
     kubectl --context $CLUSTER1 apply -f $BASEDIR/samples/$MODE/$MODE-c1.yaml
 
     # Bind helloworld to the actual dynamic exposed public IP
