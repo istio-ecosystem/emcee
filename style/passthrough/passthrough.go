@@ -313,7 +313,7 @@ func passthroughExposingVirtualService(mfc *mmv1.MeshFedConfig, se *mmv1.Service
 		},
 		Spec: v1alpha3.VirtualServiceSpec{
 			VirtualService: istiov1alpha3.VirtualService{
-				Hosts:    []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace
+				Hosts:    []string{"*"}, // fmt.Sprintf("%s.%s.svc.cluster.local", exposedLocalName(se), se.GetNamespace())}, // TODO Why need the "*"?
 				Gateways: []string{serviceExposeName(mfc.GetName(), se.GetName())},
 				Tls: []*istiov1alpha3.TLSRoute{
 					{
