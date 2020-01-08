@@ -320,7 +320,7 @@ func passthroughExposingVirtualService(mfc *mmv1.MeshFedConfig, se *mmv1.Service
 						Match: []*istiov1alpha3.TLSMatchAttributes{
 							&istiov1alpha3.TLSMatchAttributes{
 								Port:     portToListen,
-								SniHosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace
+								SniHosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", exposedLocalName(se), se.GetNamespace())},
 							},
 						},
 						Route: []*istiov1alpha3.RouteDestination{
@@ -520,4 +520,11 @@ func boundLocalName(sb *mmv1.ServiceBinding) string {
 		return sb.Spec.Alias
 	}
 	return sb.Spec.Name
+}
+
+func exposedLocalName(se *mmv1.ServiceExposition) string {
+	if se.Spec.Alias != "" {
+		return se.Spec.Alias
+	}
+	return se.Spec.Name
 }
