@@ -1,17 +1,17 @@
 apiVersion: mm.ibm.istio.io/v1
 kind: ServiceBinding
 metadata:
-  name: helloworld-with-alias
+  name: helloworld
 spec:
   name: helloworld
   namespace: default
   mesh_fed_config_selector:
-    fed-config: limited-trust
+    fed-config: passthrough
   endpoints:
   - "9.1.2.3:5000"
   # optional
-  alias: holaworld
+  # alias: some-other-name
   # optional
   # subset: v2
   # optional
-  # port: 5000
+  port: 5000
