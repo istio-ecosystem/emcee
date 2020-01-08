@@ -10,7 +10,6 @@ spec:
   alias: helloworldyall
   endpoints:
   - "9.1.2.3:5000"
+  port: 5000
   # optional
   # subset: v2
-  # optional
-  # port: 5000
