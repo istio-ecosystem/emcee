@@ -4,7 +4,7 @@ metadata:
   name: limited-trust
   namespace: limited-trust
   labels:
-    secret: cluster1
+    secret: cluster2
     fed-config: limited-trust
 spec:
   # Use Boundary Protection style data plane; see
