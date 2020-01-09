@@ -1,0 +1,18 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: MeshFedConfig
+metadata:
+  name: limited-trust
+  namespace: limited-trust
+  labels:
+    secret: cluster1
+    fed-config: limited-trust
+spec:
+  mode: BOUNDARY
+  tls_context_selector:
+    mesh: limited-trust
+    secret: cluster1
+  use_egress_gateway: false
+  egress_gateway_selector:
+    emcee: egressgateway
+  egress_gateway_port: 443
+  use_ingress_gateway: true

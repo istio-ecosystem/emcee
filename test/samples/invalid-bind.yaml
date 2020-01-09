@@ -1,0 +1,10 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: ServiceBinding
+metadata:
+  name: helloworld
+spec:
+  name: helloworld
+  namespace: default
+  mesh_fed_config_selector:
+    fed-config: limited-trust
+  alias: "^"
