@@ -122,9 +122,6 @@ func (bp *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.Servi
 		log.Warnf("Could not created the Virtual Service %v: %v", vs.GetName(), err)
 	}
 
-	// get the endpoints // TODO
-	// eps, err := GetIngressEndpointsNoPort(ctx, bp.cli, mfc.GetName(), mfc.GetNamespace())
-
 	se.Status.Ready = true
 	if err := bp.cli.Update(ctx, se); err != nil {
 		return err
