@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/istio-ecosystem/emcee/pkg/discovery"
+
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
@@ -92,23 +94,34 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "MeshFedConfig")
 		os.Exit(1)
 	}
-	if err = (&controllers.ServiceExpositionReconciler{
+
+	ser := controllers.ServiceExpositionReconciler{
 		Client:    kclient,
 		Interface: istioClient,
 		//Log:    ctrl.Log.WithName("controllers").WithName("ServiceExposition"),
-	}).SetupWithManager(mgr); err != nil {
+	}
+	if err = (&ser).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceExposition")
 		os.Exit(1)
 	}
-	if err = (&controllers.ServiceBindingReconciler{
+
+	sbr := controllers.ServiceBindingReconciler{
 		Client:    kclient,
 		Interface: istioClient,
 		//Log:    ctrl.Log.WithName("controllers").WithName("ServiceBinding"),
-	}).SetupWithManager(mgr); err != nil {
+	}
+	if err = (&sbr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	setupLog.Info("Before Discovery ..........................\n")
+	go discovery.Discovery(&ser)
+	setupLog.Info("After Discovery ...........................\n")
+	setupLog.Info("Before Discovery ..........................\n")
+	go discovery.Client(&sbr)
+	setupLog.Info("After Discovery ...........................\n")
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
