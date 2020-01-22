@@ -22,95 +22,55 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-// The request message containing the user's name.
-type ExposedServicesRequest struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+// The response message containing the greetings
+type ExposedServicesMessages struct {
+	Name                 string                                    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	ExposedServices      []*ExposedServicesMessages_ExposedService `protobuf:"bytes,2,rep,name=ExposedServices,proto3" json:"ExposedServices,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                                  `json:"-"`
+	XXX_unrecognized     []byte                                    `json:"-"`
+	XXX_sizecache        int32                                     `json:"-"`
 }
 
-func (m *ExposedServicesRequest) Reset()         { *m = ExposedServicesRequest{} }
-func (m *ExposedServicesRequest) String() string { return proto.CompactTextString(m) }
-func (*ExposedServicesRequest) ProtoMessage()    {}
-func (*ExposedServicesRequest) Descriptor() ([]byte, []int) {
+func (m *ExposedServicesMessages) Reset()         { *m = ExposedServicesMessages{} }
+func (m *ExposedServicesMessages) String() string { return proto.CompactTextString(m) }
+func (*ExposedServicesMessages) ProtoMessage()    {}
+func (*ExposedServicesMessages) Descriptor() ([]byte, []int) {
 	return fileDescriptor_1e7ff60feb39c8d0, []int{0}
 }
 
-func (m *ExposedServicesRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ExposedServicesRequest.Unmarshal(m, b)
+func (m *ExposedServicesMessages) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ExposedServicesMessages.Unmarshal(m, b)
 }
-func (m *ExposedServicesRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ExposedServicesRequest.Marshal(b, m, deterministic)
+func (m *ExposedServicesMessages) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ExposedServicesMessages.Marshal(b, m, deterministic)
 }
-func (m *ExposedServicesRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ExposedServicesRequest.Merge(m, src)
+func (m *ExposedServicesMessages) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExposedServicesMessages.Merge(m, src)
 }
-func (m *ExposedServicesRequest) XXX_Size() int {
-	return xxx_messageInfo_ExposedServicesRequest.Size(m)
+func (m *ExposedServicesMessages) XXX_Size() int {
+	return xxx_messageInfo_ExposedServicesMessages.Size(m)
 }
-func (m *ExposedServicesRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_ExposedServicesRequest.DiscardUnknown(m)
+func (m *ExposedServicesMessages) XXX_DiscardUnknown() {
+	xxx_messageInfo_ExposedServicesMessages.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ExposedServicesRequest proto.InternalMessageInfo
+var xxx_messageInfo_ExposedServicesMessages proto.InternalMessageInfo
 
-func (m *ExposedServicesRequest) GetName() string {
+func (m *ExposedServicesMessages) GetName() string {
 	if m != nil {
 		return m.Name
 	}
 	return ""
 }
 
-// The response message containing the greetings
-type ExposedServicesReply struct {
-	Name                 string                                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	ExposedServices      []*ExposedServicesReply_ExposedService `protobuf:"bytes,2,rep,name=ExposedServices,proto3" json:"ExposedServices,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                               `json:"-"`
-	XXX_unrecognized     []byte                                 `json:"-"`
-	XXX_sizecache        int32                                  `json:"-"`
-}
-
-func (m *ExposedServicesReply) Reset()         { *m = ExposedServicesReply{} }
-func (m *ExposedServicesReply) String() string { return proto.CompactTextString(m) }
-func (*ExposedServicesReply) ProtoMessage()    {}
-func (*ExposedServicesReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1e7ff60feb39c8d0, []int{1}
-}
-
-func (m *ExposedServicesReply) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ExposedServicesReply.Unmarshal(m, b)
-}
-func (m *ExposedServicesReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ExposedServicesReply.Marshal(b, m, deterministic)
-}
-func (m *ExposedServicesReply) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ExposedServicesReply.Merge(m, src)
-}
-func (m *ExposedServicesReply) XXX_Size() int {
-	return xxx_messageInfo_ExposedServicesReply.Size(m)
-}
-func (m *ExposedServicesReply) XXX_DiscardUnknown() {
-	xxx_messageInfo_ExposedServicesReply.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ExposedServicesReply proto.InternalMessageInfo
-
-func (m *ExposedServicesReply) GetName() string {
-	if m != nil {
-		return m.Name
-	}
-	return ""
-}
-
-func (m *ExposedServicesReply) GetExposedServices() []*ExposedServicesReply_ExposedService {
+func (m *ExposedServicesMessages) GetExposedServices() []*ExposedServicesMessages_ExposedService {
 	if m != nil {
 		return m.ExposedServices
 	}
 	return nil
 }
 
-type ExposedServicesReply_ExposedService struct {
+type ExposedServicesMessages_ExposedService struct {
 	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Endpoints            []string `protobuf:"bytes,2,rep,name=endpoints,proto3" json:"endpoints,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -118,39 +78,41 @@ type ExposedServicesReply_ExposedService struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ExposedServicesReply_ExposedService) Reset()         { *m = ExposedServicesReply_ExposedService{} }
-func (m *ExposedServicesReply_ExposedService) String() string { return proto.CompactTextString(m) }
-func (*ExposedServicesReply_ExposedService) ProtoMessage()    {}
-func (*ExposedServicesReply_ExposedService) Descriptor() ([]byte, []int) {
-	return fileDescriptor_1e7ff60feb39c8d0, []int{1, 0}
+func (m *ExposedServicesMessages_ExposedService) Reset() {
+	*m = ExposedServicesMessages_ExposedService{}
+}
+func (m *ExposedServicesMessages_ExposedService) String() string { return proto.CompactTextString(m) }
+func (*ExposedServicesMessages_ExposedService) ProtoMessage()    {}
+func (*ExposedServicesMessages_ExposedService) Descriptor() ([]byte, []int) {
+	return fileDescriptor_1e7ff60feb39c8d0, []int{0, 0}
 }
 
-func (m *ExposedServicesReply_ExposedService) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ExposedServicesReply_ExposedService.Unmarshal(m, b)
+func (m *ExposedServicesMessages_ExposedService) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ExposedServicesMessages_ExposedService.Unmarshal(m, b)
 }
-func (m *ExposedServicesReply_ExposedService) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ExposedServicesReply_ExposedService.Marshal(b, m, deterministic)
+func (m *ExposedServicesMessages_ExposedService) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ExposedServicesMessages_ExposedService.Marshal(b, m, deterministic)
 }
-func (m *ExposedServicesReply_ExposedService) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ExposedServicesReply_ExposedService.Merge(m, src)
+func (m *ExposedServicesMessages_ExposedService) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExposedServicesMessages_ExposedService.Merge(m, src)
 }
-func (m *ExposedServicesReply_ExposedService) XXX_Size() int {
-	return xxx_messageInfo_ExposedServicesReply_ExposedService.Size(m)
+func (m *ExposedServicesMessages_ExposedService) XXX_Size() int {
+	return xxx_messageInfo_ExposedServicesMessages_ExposedService.Size(m)
 }
-func (m *ExposedServicesReply_ExposedService) XXX_DiscardUnknown() {
-	xxx_messageInfo_ExposedServicesReply_ExposedService.DiscardUnknown(m)
+func (m *ExposedServicesMessages_ExposedService) XXX_DiscardUnknown() {
+	xxx_messageInfo_ExposedServicesMessages_ExposedService.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ExposedServicesReply_ExposedService proto.InternalMessageInfo
+var xxx_messageInfo_ExposedServicesMessages_ExposedService proto.InternalMessageInfo
 
-func (m *ExposedServicesReply_ExposedService) GetName() string {
+func (m *ExposedServicesMessages_ExposedService) GetName() string {
 	if m != nil {
 		return m.Name
 	}
 	return ""
 }
 
-func (m *ExposedServicesReply_ExposedService) GetEndpoints() []string {
+func (m *ExposedServicesMessages_ExposedService) GetEndpoints() []string {
 	if m != nil {
 		return m.Endpoints
 	}
@@ -158,27 +120,26 @@ func (m *ExposedServicesReply_ExposedService) GetEndpoints() []string {
 }
 
 func init() {
-	proto.RegisterType((*ExposedServicesRequest)(nil), "pb.ExposedServicesRequest")
-	proto.RegisterType((*ExposedServicesReply)(nil), "pb.ExposedServicesReply")
-	proto.RegisterType((*ExposedServicesReply_ExposedService)(nil), "pb.ExposedServicesReply.ExposedService")
+	proto.RegisterType((*ExposedServicesMessages)(nil), "pb.ExposedServicesMessages")
+	proto.RegisterType((*ExposedServicesMessages_ExposedService)(nil), "pb.ExposedServicesMessages.ExposedService")
 }
 
 func init() { proto.RegisterFile("discovery.proto", fileDescriptor_1e7ff60feb39c8d0) }
 
 var fileDescriptor_1e7ff60feb39c8d0 = []byte{
-	// 188 bytes of a gzipped FileDescriptorProto
+	// 178 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4f, 0xc9, 0x2c, 0x4e,
 	0xce, 0x2f, 0x4b, 0x2d, 0xaa, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x2a, 0x48, 0x52,
-	0xd2, 0xe1, 0x12, 0x73, 0xad, 0x28, 0xc8, 0x2f, 0x4e, 0x4d, 0x09, 0x4e, 0x2d, 0x2a, 0xcb, 0x4c,
-	0x4e, 0x2d, 0x0e, 0x4a, 0x2d, 0x2c, 0x4d, 0x2d, 0x2e, 0x11, 0x12, 0xe2, 0x62, 0xc9, 0x4b, 0xcc,
-	0x4d, 0x95, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x0c, 0x02, 0xb3, 0x95, 0x0e, 0x32, 0x72, 0x89, 0x60,
-	0x28, 0x2f, 0xc8, 0xa9, 0xc4, 0xa6, 0x58, 0x28, 0x90, 0x8b, 0x1f, 0x4d, 0xad, 0x04, 0x93, 0x02,
-	0xb3, 0x06, 0xb7, 0x91, 0xba, 0x5e, 0x41, 0x92, 0x1e, 0x36, 0x63, 0xd0, 0x04, 0x83, 0xd0, 0xf5,
-	0x4b, 0x39, 0x71, 0xf1, 0xa1, 0x0a, 0x61, 0xb5, 0x58, 0x86, 0x8b, 0x33, 0x35, 0x2f, 0xa5, 0x20,
-	0x3f, 0x33, 0xaf, 0x04, 0x62, 0x25, 0x67, 0x10, 0x42, 0xc0, 0x28, 0x8a, 0x8b, 0xc5, 0x35, 0xd8,
-	0x25, 0x58, 0x28, 0x88, 0x4b, 0x02, 0xcd, 0x78, 0x17, 0x58, 0xf8, 0x08, 0x49, 0x61, 0x75, 0x21,
-	0x38, 0x5c, 0xa4, 0x24, 0x70, 0xb9, 0x5e, 0x89, 0x21, 0x89, 0x0d, 0x1c, 0xb0, 0xc6, 0x80, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0x09, 0xf7, 0x52, 0x50, 0x6b, 0x01, 0x00, 0x00,
+	0x3a, 0xce, 0xc8, 0x25, 0xee, 0x5a, 0x51, 0x90, 0x5f, 0x9c, 0x9a, 0x12, 0x9c, 0x5a, 0x54, 0x96,
+	0x99, 0x9c, 0x5a, 0xec, 0x9b, 0x5a, 0x5c, 0x9c, 0x98, 0x9e, 0x5a, 0x2c, 0x24, 0xc4, 0xc5, 0x92,
+	0x97, 0x98, 0x9b, 0x2a, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x19, 0x04, 0x66, 0x0b, 0x85, 0x70, 0xf1,
+	0xa3, 0x29, 0x97, 0x60, 0x52, 0x60, 0xd6, 0xe0, 0x36, 0xd2, 0xd2, 0x2b, 0x48, 0xd2, 0xc3, 0x61,
+	0x12, 0x9a, 0x78, 0x10, 0xba, 0x11, 0x52, 0x4e, 0x5c, 0x7c, 0xa8, 0x42, 0x58, 0xed, 0x96, 0xe1,
+	0xe2, 0x4c, 0xcd, 0x4b, 0x29, 0xc8, 0xcf, 0xcc, 0x2b, 0x81, 0xd8, 0xca, 0x19, 0x84, 0x10, 0x30,
+	0x4a, 0xe2, 0x62, 0x71, 0x0d, 0x76, 0x09, 0x16, 0x8a, 0xe2, 0x92, 0x40, 0x33, 0xde, 0x05, 0xe6,
+	0x6f, 0x21, 0x69, 0x3c, 0x8e, 0x94, 0xc2, 0x27, 0xa9, 0xc4, 0xa0, 0xc1, 0x68, 0xc0, 0x98, 0xc4,
+	0x06, 0x0e, 0x38, 0x63, 0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0x7d, 0xbf, 0xc8, 0xbc, 0x4b, 0x01,
+	0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -194,7 +155,7 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ESDSClient interface {
 	// list all exported services
-	ExposedServicesDiscovery(ctx context.Context, in *ExposedServicesRequest, opts ...grpc.CallOption) (*ExposedServicesReply, error)
+	ExposedServicesDiscovery(ctx context.Context, opts ...grpc.CallOption) (ESDS_ExposedServicesDiscoveryClient, error)
 }
 
 type eSDSClient struct {
@@ -205,52 +166,84 @@ func NewESDSClient(cc *grpc.ClientConn) ESDSClient {
 	return &eSDSClient{cc}
 }
 
-func (c *eSDSClient) ExposedServicesDiscovery(ctx context.Context, in *ExposedServicesRequest, opts ...grpc.CallOption) (*ExposedServicesReply, error) {
-	out := new(ExposedServicesReply)
-	err := c.cc.Invoke(ctx, "/pb.ESDS/ExposedServicesDiscovery", in, out, opts...)
+func (c *eSDSClient) ExposedServicesDiscovery(ctx context.Context, opts ...grpc.CallOption) (ESDS_ExposedServicesDiscoveryClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ESDS_serviceDesc.Streams[0], "/pb.ESDS/ExposedServicesDiscovery", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &eSDSExposedServicesDiscoveryClient{stream}
+	return x, nil
+}
+
+type ESDS_ExposedServicesDiscoveryClient interface {
+	Send(*ExposedServicesMessages) error
+	Recv() (*ExposedServicesMessages, error)
+	grpc.ClientStream
+}
+
+type eSDSExposedServicesDiscoveryClient struct {
+	grpc.ClientStream
+}
+
+func (x *eSDSExposedServicesDiscoveryClient) Send(m *ExposedServicesMessages) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *eSDSExposedServicesDiscoveryClient) Recv() (*ExposedServicesMessages, error) {
+	m := new(ExposedServicesMessages)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // ESDSServer is the server API for ESDS service.
 type ESDSServer interface {
 	// list all exported services
-	ExposedServicesDiscovery(context.Context, *ExposedServicesRequest) (*ExposedServicesReply, error)
+	ExposedServicesDiscovery(ESDS_ExposedServicesDiscoveryServer) error
 }
 
 func RegisterESDSServer(s *grpc.Server, srv ESDSServer) {
 	s.RegisterService(&_ESDS_serviceDesc, srv)
 }
 
-func _ESDS_ExposedServicesDiscovery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ExposedServicesRequest)
-	if err := dec(in); err != nil {
+func _ESDS_ExposedServicesDiscovery_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ESDSServer).ExposedServicesDiscovery(&eSDSExposedServicesDiscoveryServer{stream})
+}
+
+type ESDS_ExposedServicesDiscoveryServer interface {
+	Send(*ExposedServicesMessages) error
+	Recv() (*ExposedServicesMessages, error)
+	grpc.ServerStream
+}
+
+type eSDSExposedServicesDiscoveryServer struct {
+	grpc.ServerStream
+}
+
+func (x *eSDSExposedServicesDiscoveryServer) Send(m *ExposedServicesMessages) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *eSDSExposedServicesDiscoveryServer) Recv() (*ExposedServicesMessages, error) {
+	m := new(ExposedServicesMessages)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(ESDSServer).ExposedServicesDiscovery(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pb.ESDS/ExposedServicesDiscovery",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ESDSServer).ExposedServicesDiscovery(ctx, req.(*ExposedServicesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return m, nil
 }
 
 var _ESDS_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pb.ESDS",
 	HandlerType: (*ESDSServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "ExposedServicesDiscovery",
-			Handler:    _ESDS_ExposedServicesDiscovery_Handler,
+			StreamName:    "ExposedServicesDiscovery",
+			Handler:       _ESDS_ExposedServicesDiscovery_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "discovery.proto",
 }

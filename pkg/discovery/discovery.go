@@ -22,15 +22,14 @@ package discovery
 
 import (
 	"context"
+	"io"
 	"log"
 	"net"
-	"time"
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 	"github.com/istio-ecosystem/emcee/controllers"
 	pb "github.com/istio-ecosystem/emcee/pkg/discovery/api"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -41,21 +40,19 @@ const (
 var seReconciler *controllers.ServiceExpositionReconciler
 
 // server is used to implement Exposed Services Discovery Service.
-type server struct{}
+type server struct {
+	grpc.ServerStream
+}
 
-// SayHello implements ESDS server
-func (s *server) ExposedServicesDiscovery(ctx context.Context, in *pb.ExposedServicesRequest) (*pb.ExposedServicesReply, error) {
+func getAllExposedService(z, in *pb.ExposedServicesMessages) {
 	var list mmv1.ServiceExpositionList
-	peer, ok := peer.FromContext(ctx)
-	log.Printf("====<< %v Received request from: %s, %v %v", time.Now(), in.Name, peer, ok)
-	z := pb.ExposedServicesReply{
-		Name: "Exposed Services for " + in.Name,
-	}
-	err := seReconciler.List(ctx, &list)
+	err := seReconciler.List(context.Background(), &list)
+	z.Name = "Exposed Services for " + in.Name
+
 	if err == nil {
 		for _, v := range list.Items {
-			entry := pb.ExposedServicesReply_ExposedService{
-				Name: v.Spec.Name,
+			entry := pb.ExposedServicesMessages_ExposedService{
+				Name: in.Name,
 			}
 			for _, w := range v.Spec.Endpoints {
 				entry.Endpoints = append(entry.Endpoints, w)
@@ -63,7 +60,44 @@ func (s *server) ExposedServicesDiscovery(ctx context.Context, in *pb.ExposedSer
 			z.ExposedServices = append(z.ExposedServices, &entry)
 		}
 	}
-	return &z, err
+}
+
+// SayHello implements ESDS server
+func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscoveryServer) error {
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		var out pb.ExposedServicesMessages
+		getAllExposedService(&out, in)
+
+		if err := stream.Send(&out); err != nil {
+			return err
+		}
+	}
+	// var list mmv1.ServiceExpositionList
+	// peer, ok := peer.FromContext(ctx)
+	// log.Printf("====<< %v Received request from: %s, %v %v", time.Now(), in.Name, peer, ok)
+	// z := pb.ExposedServicesReply{
+	// 	Name: "Exposed Services for " + in.Name,
+	// }
+	// err := seReconciler.List(ctx, &list)
+	// if err == nil {
+	// 	for _, v := range list.Items {
+	// 		entry := pb.ExposedServicesReply_ExposedService{
+	// 			Name: v.Spec.Name,
+	// 		}
+	// 		for _, w := range v.Spec.Endpoints {
+	// 			entry.Endpoints = append(entry.Endpoints, w)
+	// 		}
+	// 		z.ExposedServices = append(z.ExposedServices, &entry)
+	// 	}
+	// }
 }
 
 // Discovery creates a grpc server
@@ -80,6 +114,7 @@ func Discovery(ser *controllers.ServiceExpositionReconciler) {
 	}
 	s := grpc.NewServer()
 	pb.RegisterESDSServer(s, &server{})
+
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	if err := s.Serve(lis); err != nil {

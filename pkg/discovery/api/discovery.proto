@@ -22,16 +22,11 @@ package pb;
 // The exposed service discovery definition.
 service ESDS {
   // list all exported services
-  rpc ExposedServicesDiscovery (ExposedServicesRequest) returns (ExposedServicesReply) {}
-}
-
-// The request message containing the user's name.
-message ExposedServicesRequest {
-  string name = 1;
+  rpc ExposedServicesDiscovery (stream ExposedServicesMessages) returns (stream ExposedServicesMessages)  {}
 }
 
 // The response message containing the greetings
-message ExposedServicesReply {
+message ExposedServicesMessages {
   message ExposedService {
      string name = 1;
      repeated string endpoints = 2;

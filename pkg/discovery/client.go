@@ -20,8 +20,8 @@ package discovery
 
 import (
 	"context"
+	"io"
 	"log"
-	"os"
 	"time"
 
 	"github.com/istio-ecosystem/emcee/controllers"
@@ -44,19 +44,49 @@ func Client(sbr *controllers.ServiceBindingReconciler) {
 	defer conn.Close()
 	c := pb.NewESDSClient(conn)
 
-	// Contact the server and print out its response.
-	name := defaultName
-	if len(os.Args) > 1 {
-		name = os.Args[1]
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	r, err := c.ExposedServicesDiscovery(ctx, &pb.ExposedServicesRequest{Name: name})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
-	}
-	for {
-		log.Printf("====> %s: \n\t %v", r.Name, r.GetExposedServices())
+	stream, err := c.ExposedServicesDiscovery(context.Background())
+	waitc := make(chan struct{})
+	go func() {
+		for {
+			in, err := stream.Recv()
+			if err == io.EOF {
+				// read done.
+				close(waitc)
+				return
+			}
+			if err != nil {
+				log.Fatalf("Failed to receive a note : %v", err)
+			}
+			log.Printf("Got message **************** (%v)", in)
+		}
+	}()
+
+	var note pb.ExposedServicesMessages
+	note.Name = "Yoyo"
+	for i := 0; i < 10; {
+		if err := stream.Send(&note); err != nil {
+			log.Printf("Requesting iter =============== (%d)", i)
+			log.Fatalf("Failed to send a note: %v", err)
+		}
 		time.Sleep(3 * time.Second)
+		i++
 	}
+	stream.CloseSend()
+	<-waitc
+
+	// Contact the server and print out its response.
+	// name := defaultName
+	// if len(os.Args) > 1 {
+	// 	name = os.Args[1]
+	// }
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	// defer cancel()
+	// r, err := c.ExposedServicesDiscovery(ctx, &pb.ExposedServicesRequest{Name: name})
+	// if err != nil {
+	// 	log.Fatalf("could not greet: %v", err)
+	// }
+	// for {
+	// 	log.Printf("====> %s: \n\t %v", r.Name, r.GetExposedServices())
+	// 	time.Sleep(3 * time.Second)
+	// }
 }
