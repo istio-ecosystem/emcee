@@ -19,6 +19,7 @@ import (
 	"context"
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
+	"github.com/istio-ecosystem/emcee/pkg/discovery"
 
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"
@@ -77,6 +78,9 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 			}
 		} else {
 			err = styleReconciler.EffectServiceExposure(ctx, &exposition, &mfc)
+			if err == nil {
+				discovery.AddEventAll()
+			}
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -90,6 +94,7 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 				return ctrl.Result{}, err
 			}
 		}
+		discovery.AddEventAll()
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, err

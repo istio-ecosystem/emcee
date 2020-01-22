@@ -57,7 +57,7 @@ func Client(sbr *controllers.ServiceBindingReconciler) {
 			if err != nil {
 				log.Fatalf("Failed to receive a note : %v", err)
 			}
-			log.Printf("Got message **************** (%v)", in)
+			log.Printf("Got message -**************** (%v)", in)
 		}
 	}()
 
@@ -65,7 +65,7 @@ func Client(sbr *controllers.ServiceBindingReconciler) {
 	note.Name = "Yoyo"
 	for i := 0; i < 10; {
 		if err := stream.Send(&note); err != nil {
-			log.Printf("Requesting iter =============== (%d)", i)
+			log.Printf("Requesting iter -=============== (%d)", i)
 			log.Fatalf("Failed to send a note: %v", err)
 		}
 		time.Sleep(3 * time.Second)
@@ -73,20 +73,4 @@ func Client(sbr *controllers.ServiceBindingReconciler) {
 	}
 	stream.CloseSend()
 	<-waitc
-
-	// Contact the server and print out its response.
-	// name := defaultName
-	// if len(os.Args) > 1 {
-	// 	name = os.Args[1]
-	// }
-	// ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	// defer cancel()
-	// r, err := c.ExposedServicesDiscovery(ctx, &pb.ExposedServicesRequest{Name: name})
-	// if err != nil {
-	// 	log.Fatalf("could not greet: %v", err)
-	// }
-	// for {
-	// 	log.Printf("====> %s: \n\t %v", r.Name, r.GetExposedServices())
-	// 	time.Sleep(3 * time.Second)
-	// }
 }

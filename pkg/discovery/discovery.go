@@ -25,23 +25,57 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 	"github.com/istio-ecosystem/emcee/controllers"
 	pb "github.com/istio-ecosystem/emcee/pkg/discovery/api"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 )
 
 const (
 	port = ":50051"
 )
 
-var seReconciler *controllers.ServiceExpositionReconciler
+var (
+	seReconciler *controllers.ServiceExpositionReconciler
+
+	esdsClients      = map[string]*EsdsConnection{}
+	esdsClientsMutex sync.RWMutex
+)
 
 // server is used to implement Exposed Services Discovery Service.
 type server struct {
 	grpc.ServerStream
+}
+
+// EsdsEvent represents a config or registry event that results in a push.
+type EsdsEvent struct {
+	// function to call once a push is finished. This must be called or future changes may be blocked.
+	done func()
+}
+
+type EsdsConnection struct {
+	// PeerAddr is the address of the client envoy, from network layer
+	PeerAddr string
+
+	// ConID is the connection identifier, used as a key in the connection table.
+	// Currently based on the node name and a counter.
+	ConID string
+
+	// Both ADS and EDS streams implement this interface
+	stream pb.ESDS_ExposedServicesDiscoveryServer
+
+	// Sending on this channel results in a push. We may also make it a channel of objects so
+	// same info can be sent to all clients, without recomputing.
+	pushChannel chan *EsdsEvent
+
+	mutex sync.RWMutex
+	added bool
 }
 
 func getAllExposedService(z, in *pb.ExposedServicesMessages) {
@@ -62,42 +96,78 @@ func getAllExposedService(z, in *pb.ExposedServicesMessages) {
 	}
 }
 
-// SayHello implements ESDS server
-func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscoveryServer) error {
+func receiveThread(stream pb.ESDS_ExposedServicesDiscoveryServer, reqChannel chan *pb.ExposedServicesMessages, receiveError *error) {
+	defer close(reqChannel)
 	for {
-		in, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		}
+		req, err := stream.Recv()
 		if err != nil {
-			return err
+			if status.Code(err) == codes.Canceled || err == io.EOF {
+				log.Printf("ESDS: terminated %v", err)
+				return
+			}
+			log.Printf("ESDS: terminated with error: %v", err)
+			return
 		}
-
-		var out pb.ExposedServicesMessages
-		getAllExposedService(&out, in)
-
-		if err := stream.Send(&out); err != nil {
-			return err
+		select {
+		case reqChannel <- req:
+		case <-stream.Context().Done():
+			log.Printf("ESDS: terminated with stream closed")
+			return
 		}
 	}
-	// var list mmv1.ServiceExpositionList
-	// peer, ok := peer.FromContext(ctx)
-	// log.Printf("====<< %v Received request from: %s, %v %v", time.Now(), in.Name, peer, ok)
-	// z := pb.ExposedServicesReply{
-	// 	Name: "Exposed Services for " + in.Name,
-	// }
-	// err := seReconciler.List(ctx, &list)
-	// if err == nil {
-	// 	for _, v := range list.Items {
-	// 		entry := pb.ExposedServicesReply_ExposedService{
-	// 			Name: v.Spec.Name,
-	// 		}
-	// 		for _, w := range v.Spec.Endpoints {
-	// 			entry.Endpoints = append(entry.Endpoints, w)
-	// 		}
-	// 		z.ExposedServices = append(z.ExposedServices, &entry)
-	// 	}
-	// }
+}
+
+// ExposedServicesDiscovery implements ESDS server
+func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscoveryServer) error {
+
+	peerInfo, ok := peer.FromContext(stream.Context())
+	peerAddr := "0.0.0.0"
+	if ok {
+		peerAddr = peerInfo.Addr.String()
+	}
+	con := newEsdsConnection(peerAddr, stream)
+
+	var receiveError error
+	reqChannel := make(chan *pb.ExposedServicesMessages, 1)
+	go receiveThread(con.stream, reqChannel, &receiveError)
+
+	for {
+		// Block until either a request is received or a push is triggered.
+		select {
+		case discReq, ok := <-reqChannel:
+			if !ok {
+				// Remote side closed connection.
+				return receiveError
+			}
+			var out pb.ExposedServicesMessages
+			getAllExposedService(&out, discReq)
+			if err := stream.Send(&out); err != nil {
+				return err
+			}
+
+			// add connection to list of all connections if not already addes
+			con.mutex.Lock()
+			if !con.added {
+				con.added = true
+				con.mutex.Unlock()
+				s.addCon(con.ConID, con)
+				defer s.removeCon(con.ConID, con)
+			} else {
+				con.mutex.Unlock()
+			}
+		case pushEv := <-con.pushChannel:
+			in := pb.ExposedServicesMessages{
+				Name: "Eventer",
+			}
+			var out pb.ExposedServicesMessages
+			getAllExposedService(&out, &in)
+			err := stream.Send(&out)
+			pushEv.done()
+			if err != nil {
+				return nil
+			}
+		}
+	}
 }
 
 // Discovery creates a grpc server
@@ -119,5 +189,37 @@ func Discovery(ser *controllers.ServiceExpositionReconciler) {
 	reflection.Register(s)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
+	}
+}
+
+func newEsdsConnection(peerAddr string, stream pb.ESDS_ExposedServicesDiscoveryServer) *EsdsConnection {
+	return &EsdsConnection{
+		pushChannel: make(chan *EsdsEvent),
+		PeerAddr:    peerAddr,
+		ConID:       peerAddr, // TODO: maybe update
+		stream:      stream,
+	}
+}
+
+func (s *server) addCon(conID string, con *EsdsConnection) {
+	esdsClientsMutex.Lock()
+	defer esdsClientsMutex.Unlock()
+	esdsClients[conID] = con
+}
+
+func (s *server) removeCon(conID string, con *EsdsConnection) {
+	esdsClientsMutex.Lock()
+	defer esdsClientsMutex.Unlock()
+
+	if _, exist := esdsClients[conID]; !exist {
+		log.Printf("ADS: Removing connection for non-existing node:%v.", conID)
+	} else {
+		delete(esdsClients, conID)
+	}
+}
+
+func AddEvenAll() {
+	for _, v := range esdsClients {
+		v.pushChannel <- &EsdsEvent{}
 	}
 }
