@@ -20,12 +20,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/istio-ecosystem/emcee/pkg/discovery"
-
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 	"github.com/istio-ecosystem/emcee/controllers"
+	"github.com/istio-ecosystem/emcee/pkg/discovery"
 	mfutil "github.com/istio-ecosystem/emcee/util"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,6 +33,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
+)
+
+const (
+	grpcAddress = ":50051"
 )
 
 var (
@@ -49,13 +52,17 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var context string
-	var enableLeaderElection bool
+	var (
+		metricsAddr          string
+		context              string
+		enableLeaderElection bool
+		grpcServerAddr       string
+	)
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&context, "context", "", "Kubernetes context")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&grpcServerAddr, "grpc-addr", grpcAddress, "The address the grpc server endpoint binds to.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -116,12 +123,8 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
-	setupLog.Info("Before Discovery ..........................\n")
-	go discovery.Discovery(&ser)
-	setupLog.Info("After Discovery ...........................\n")
-	setupLog.Info("Before Discovery ..........................\n")
+	go discovery.Discovery(&ser, &grpcServerAddr)
 	go discovery.Client(&sbr)
-	setupLog.Info("After Discovery ...........................\n")
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

@@ -57,15 +57,14 @@ func Client(sbr *controllers.ServiceBindingReconciler) {
 			if err != nil {
 				log.Fatalf("Failed to receive a note : %v", err)
 			}
-			log.Printf("Got message -**************** (%v)", in)
+			log.Printf("Received ESDA Discovery message: <%v>", in)
 		}
 	}()
 
 	var note pb.ExposedServicesMessages
 	note.Name = "Yoyo"
-	for i := 0; i < 10; {
+	for i := 0; i < 10000; {
 		if err := stream.Send(&note); err != nil {
-			log.Printf("Requesting iter -=============== (%d)", i)
 			log.Fatalf("Failed to send a note: %v", err)
 		}
 		time.Sleep(3 * time.Second)

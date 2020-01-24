@@ -19,7 +19,6 @@ import (
 	"context"
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
-	"github.com/istio-ecosystem/emcee/pkg/discovery"
 
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"
@@ -36,11 +35,17 @@ type ServiceExpositionReconciler struct {
 	istioclient.Interface
 }
 
+var UpdateChannel chan int
+var x int
+
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=serviceexpositions,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=serviceexpositions/status,verbs=get;update;patch
 
 func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
+	if UpdateChannel == nil {
+		UpdateChannel = make(chan int, 1)
+	}
 	myFinalizerName := "mm.ibm.istio.io"
 	var exposition mmv1.ServiceExposition
 
@@ -79,7 +84,8 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		} else {
 			err = styleReconciler.EffectServiceExposure(ctx, &exposition, &mfc)
 			if err == nil {
-				discovery.AddEventAll()
+				UpdateChannel <- x
+				x++
 			}
 			return ctrl.Result{}, err
 		}
@@ -94,7 +100,8 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 				return ctrl.Result{}, err
 			}
 		}
-		discovery.AddEventAll()
+		UpdateChannel <- x
+		x++
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, err
