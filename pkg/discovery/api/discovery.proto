@@ -29,7 +29,9 @@ service ESDS {
 message ExposedServicesMessages {
   message ExposedService {
      string name = 1;
-     repeated string endpoints = 2;
+     uint32 port = 2;
+     map<string, string> meshFedConfigSelector =3;
+     repeated string endpoints = 4;
   }
   string name = 1;
   repeated ExposedService  ExposedServices = 2;

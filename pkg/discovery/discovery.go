@@ -82,7 +82,9 @@ func getAllExposedService(z, in *pb.ExposedServicesMessages) {
 	if err == nil {
 		for _, v := range list.Items {
 			entry := pb.ExposedServicesMessages_ExposedService{
-				Name: in.Name,
+				Name:                  v.Spec.Name,
+				Port:                  v.Spec.Port,
+				MeshFedConfigSelector: v.Spec.MeshFedConfigSelector,
 			}
 			for _, w := range v.Spec.Endpoints {
 				entry.Endpoints = append(entry.Endpoints, w)

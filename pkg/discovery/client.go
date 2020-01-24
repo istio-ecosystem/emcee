@@ -21,29 +21,63 @@ package discovery
 import (
 	"context"
 	"io"
-	"log"
+	"strings"
 	"time"
 
+	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 	"github.com/istio-ecosystem/emcee/controllers"
 	pb "github.com/istio-ecosystem/emcee/pkg/discovery/api"
 	"google.golang.org/grpc"
+	"istio.io/pkg/log"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
-	address     = "localhost:50051"
 	defaultName = "Server x100"
 )
 
+func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService, name string) *mmv1.ServiceBinding {
+	return &mmv1.ServiceBinding{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ServiceBinding",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      strings.ToLower(strings.Replace(name, " ", "", -1)),
+			Namespace: "default",
+		},
+		Spec: mmv1.ServiceBindingSpec{
+			Name:                  in.Name,
+			Namespace:             "default",
+			Port:                  in.Port,
+			MeshFedConfigSelector: in.MeshFedConfigSelector,
+			Endpoints:             in.Endpoints,
+		},
+	}
+}
+
+func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.ExposedServicesMessages) error {
+	for _, v := range in.GetExposedServices() {
+		nv := newServiceBinding(v, in.GetName())
+		or, err := controllerutil.CreateOrUpdate(context.Background(), sbr.Client, nv, func() error { return nil })
+		log.Infof("********************** 17 %v ---> %v <--- %v", nv, or, err)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
 // Client is the ESDS grpc client
-func Client(sbr *controllers.ServiceBindingReconciler) {
+func Client(sbr *controllers.ServiceBindingReconciler, address *string) {
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	conn, err := grpc.Dial(*address, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
 	c := pb.NewESDSClient(conn)
-
 	stream, err := c.ExposedServicesDiscovery(context.Background())
 	waitc := make(chan struct{})
 	go func() {
@@ -57,7 +91,9 @@ func Client(sbr *controllers.ServiceBindingReconciler) {
 			if err != nil {
 				log.Fatalf("Failed to receive a note : %v", err)
 			}
-			log.Printf("Received ESDA Discovery message: <%v>", in)
+			log.Infof("Received ESDA Discovery message: <%v>", in)
+			createServiceBindings(sbr, in)
+			log.Infof("Processd ESDA Discovery message")
 		}
 	}()
 
