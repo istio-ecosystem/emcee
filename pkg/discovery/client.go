@@ -21,7 +21,6 @@ package discovery
 import (
 	"context"
 	"io"
-	"strings"
 	"time"
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
@@ -43,7 +42,7 @@ func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService, name strin
 			Kind: "ServiceBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      strings.ToLower(strings.Replace(name, " ", "", -1)),
+			Name:      in.Name, //strings.ToLower(strings.Replace(name, " ", "", -1)),
 			Namespace: "default",
 		},
 		Spec: mmv1.ServiceBindingSpec{
@@ -72,11 +71,20 @@ func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.Exp
 // Client is the ESDS grpc client
 func Client(sbr *controllers.ServiceBindingReconciler, address *string) {
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(*address, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+	var err error
+	var conn *grpc.ClientConn = nil
+	for {
+		conn, err = grpc.Dial(*address, grpc.WithInsecure(), grpc.WithBlock())
+		if err != nil {
+			log.Infof("Could not connect to Discovery server. Will try again.\n")
+			time.Sleep(time.Second)
+		} else {
+			log.Infof("Connected to Discovery server.\n")
+			break
+		}
 	}
 	defer conn.Close()
+
 	c := pb.NewESDSClient(conn)
 	stream, err := c.ExposedServicesDiscovery(context.Background())
 	waitc := make(chan struct{})

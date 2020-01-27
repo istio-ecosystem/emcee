@@ -19,7 +19,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 
@@ -38,7 +37,7 @@ import (
 
 const (
 	grpcServerAddress    = ":50051"
-	grpcDiscoveryAddress = "localhost:50051"
+	grpcDiscoveryAddress = "" // "localhost:50051"
 )
 
 var (
@@ -66,7 +65,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&grpcServerAddr, "grpc-server-addr", grpcServerAddress, "The address the grpc server endpoint binds to.")
-	flag.StringVar(&grpcDiscoveryAddr, "grpc-discovery-addr", grpcDiscoveryAddress, "The address the grpc server endpoint binds to.")
+	flag.StringVar(&grpcDiscoveryAddr, "grpc-discovery-addr", grpcDiscoveryAddress, "The grpc server endpoint to connect to.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -128,8 +127,9 @@ func main() {
 	// +kubebuilder:scaffold:builder
 
 	go discovery.Discovery(&ser, &grpcServerAddr)
-	time.Sleep(5 * time.Second)
-	go discovery.Client(&sbr, &grpcDiscoveryAddr)
+	if grpcDiscoveryAddr != "" {
+		go discovery.Client(&sbr, &grpcDiscoveryAddr)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
