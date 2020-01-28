@@ -21,7 +21,7 @@ fi
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 BASEDIR=$DIR/../..
 TMPDIR=/tmp
-USEDISCOVERY=NO
+USEDISCOVERY=YES
 
 if [ -z "${CTX_CLUSTER1+xxx}" ]; then
    echo CTX_CLUSTER1 is not set
@@ -340,7 +340,6 @@ main() {
     kubectl --context $CLUSTER1 apply -f $BASEDIR/samples/$MODE/$MODE-c1.yaml
 
     # Bind helloworld to the actual dynamic exposed public IP
-    # MBMBMBMB
     if [ $USEDISCOVERY == "NO" ]; then
        cat $BASEDIR/samples/$MODE/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
     fi
@@ -355,7 +354,6 @@ main() {
     sleep 5
     end_to_end  "helloworld"
 
-    # MBMBMBMB
     # exit 0
 
     # End to end test with alias in expose side
@@ -366,7 +364,6 @@ main() {
     sleep 5
     end_to_end  "helloworld"
 
-    # MBMBMBMB
     # exit 0
 
     # End to end test with alias in bind side
