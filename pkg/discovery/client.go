@@ -58,8 +58,7 @@ func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService, name strin
 func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.ExposedServicesMessages) error {
 	for _, v := range in.GetExposedServices() {
 		nv := newServiceBinding(v, in.GetName())
-		or, err := controllerutil.CreateOrUpdate(context.Background(), sbr.Client, nv, func() error { return nil })
-		log.Infof("********************** 17 %v ---> %v <--- %v", nv, or, err)
+		_, err := controllerutil.CreateOrUpdate(context.Background(), sbr.Client, nv, func() error { return nil })
 		if err != nil {
 			return err
 		}
