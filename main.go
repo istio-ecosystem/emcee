@@ -24,6 +24,7 @@ import (
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 	"github.com/istio-ecosystem/emcee/controllers"
+	"github.com/istio-ecosystem/emcee/pkg/discovery"
 	mfutil "github.com/istio-ecosystem/emcee/util"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +33,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
+)
+
+const (
+	grpcServerAddress    = ":50051"
+	grpcDiscoveryAddress = "" // "localhost:50051"
 )
 
 var (
@@ -47,13 +53,19 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var context string
-	var enableLeaderElection bool
+	var (
+		metricsAddr          string
+		context              string
+		enableLeaderElection bool
+		grpcServerAddr       string
+		grpcDiscoveryAddr    string
+	)
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&context, "context", "", "Kubernetes context")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&grpcServerAddr, "grpc-server-addr", grpcServerAddress, "The address the grpc server endpoint binds to.")
+	flag.StringVar(&grpcDiscoveryAddr, "grpc-discovery-addr", grpcDiscoveryAddress, "The grpc server endpoint to connect to.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -92,23 +104,32 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "MeshFedConfig")
 		os.Exit(1)
 	}
-	if err = (&controllers.ServiceExpositionReconciler{
+
+	ser := controllers.ServiceExpositionReconciler{
 		Client:    kclient,
 		Interface: istioClient,
 		//Log:    ctrl.Log.WithName("controllers").WithName("ServiceExposition"),
-	}).SetupWithManager(mgr); err != nil {
+	}
+	if err = (&ser).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceExposition")
 		os.Exit(1)
 	}
-	if err = (&controllers.ServiceBindingReconciler{
+
+	sbr := controllers.ServiceBindingReconciler{
 		Client:    kclient,
 		Interface: istioClient,
 		//Log:    ctrl.Log.WithName("controllers").WithName("ServiceBinding"),
-	}).SetupWithManager(mgr); err != nil {
+	}
+	if err = (&sbr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	go discovery.Discovery(&ser, &grpcServerAddr)
+	if grpcDiscoveryAddr != "" {
+		go discovery.Client(&sbr, &grpcDiscoveryAddr)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

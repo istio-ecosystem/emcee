@@ -35,11 +35,17 @@ type ServiceExpositionReconciler struct {
 	istioclient.Interface
 }
 
+var UpdateChannel chan int
+var x int
+
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=serviceexpositions,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=serviceexpositions/status,verbs=get;update;patch
 
 func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
+	if UpdateChannel == nil {
+		UpdateChannel = make(chan int, 1)
+	}
 	myFinalizerName := "mm.ibm.istio.io"
 	var exposition mmv1.ServiceExposition
 
@@ -77,6 +83,10 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 			}
 		} else {
 			err = styleReconciler.EffectServiceExposure(ctx, &exposition, &mfc)
+			if err == nil {
+				UpdateChannel <- x
+				x++
+			}
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -90,6 +100,8 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 				return ctrl.Result{}, err
 			}
 		}
+		UpdateChannel <- x
+		x++
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, err
