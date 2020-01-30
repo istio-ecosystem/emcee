@@ -67,6 +67,22 @@ func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.Exp
 	return nil
 }
 
+var discoveryServices map[string]bool
+
+func ClientStarter(sbr *controllers.ServiceBindingReconciler, discoveryChannel chan string) {
+	discoveryServices = make(map[string]bool)
+	for {
+		select {
+		case svc := <-discoveryChannel:
+			_, ok := discoveryServices[svc]
+			if !ok {
+				go Client(sbr, &svc)
+				discoveryServices[svc] = true
+			}
+		}
+	}
+}
+
 // Client is the ESDS grpc client
 func Client(sbr *controllers.ServiceBindingReconciler, address *string) {
 	// Set up a connection to the server.
@@ -106,12 +122,12 @@ func Client(sbr *controllers.ServiceBindingReconciler, address *string) {
 
 	var note pb.ExposedServicesMessages
 	note.Name = "Yoyo"
-	for i := 0; i < 10000; {
+
+	for {
 		if err := stream.Send(&note); err != nil {
 			log.Fatalf("Failed to send a note: %v", err)
 		}
 		time.Sleep(3 * time.Second)
-		i++
 	}
 	stream.CloseSend()
 	<-waitc
