@@ -67,42 +67,85 @@ func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.Exp
 	return nil
 }
 
-var discoveryServices map[string]bool
+type discoveryEntry struct {
+	address  string
+	waitChan chan struct{}
+	cancel   context.CancelFunc
+	status   bool
+}
 
-func ClientStarter(sbr *controllers.ServiceBindingReconciler, discoveryChannel chan string) {
-	discoveryServices = make(map[string]bool)
+var discoveryServices map[string]*discoveryEntry
+
+func ClientStarter(sbr *controllers.ServiceBindingReconciler, discoveryChannel chan controllers.DiscoveryServer) {
+	discoveryServices = make(map[string]*discoveryEntry)
 	for {
 		select {
 		case svc := <-discoveryChannel:
-			_, ok := discoveryServices[svc]
-			if !ok {
-				go Client(sbr, &svc)
-				discoveryServices[svc] = true
+			_, ok := discoveryServices[svc.Name]
+			if svc.Operation == "U" {
+				if !ok {
+					// This is in response to a new service
+					// Create the client for it
+					waitc := make(chan struct{})
+					ctx, cancel := context.WithCancel(context.Background())
+					de := discoveryEntry{
+						address:  svc.Address,
+						waitChan: waitc,
+						cancel:   cancel,
+					}
+					discoveryServices[svc.Name] = &de
+					go Client(ctx, sbr, &de, waitc)
+					time.Sleep(time.Second)
+				} else {
+					// This is in response to an update to service
+					// If address has changed, kill the existing client
+					// and start a new one
+					if discoveryServices[svc.Name].address != svc.Address {
+						discoveryServices[svc.Name].cancel()
+						if discoveryServices[svc.Name].status == true {
+							discoveryServices[svc.Name].waitChan <- struct{}{}
+						}
+						waitc := make(chan struct{})
+						ctx, cancel := context.WithCancel(context.Background())
+						de := discoveryServices[svc.Name]
+						de.address = svc.Address
+						de.waitChan = waitc
+						de.cancel = cancel
+						de.status = false
+						go Client(ctx, sbr, de, waitc)
+					}
+				}
+			} else if svc.Operation == "D" {
+				// This is in response to a deletion of a service
+				// if exists, delet the client
+				if ok {
+					// TODO: kill the old
+					discoveryServices[svc.Name].waitChan <- struct{}{}
+					discoveryServices[svc.Name].cancel()
+					delete(discoveryServices, svc.Name)
+				}
 			}
 		}
 	}
 }
 
 // Client is the ESDS grpc client
-func Client(sbr *controllers.ServiceBindingReconciler, address *string) {
+func Client(ctx context.Context, sbr *controllers.ServiceBindingReconciler, disc *discoveryEntry, delChan chan struct{}) {
 	// Set up a connection to the server.
 	var err error
 	var conn *grpc.ClientConn = nil
-	for {
-		conn, err = grpc.Dial(*address, grpc.WithInsecure(), grpc.WithBlock())
-		if err != nil {
-			log.Infof("Could not connect to Discovery server. Will try again.\n")
-			time.Sleep(time.Second)
-		} else {
-			log.Infof("Connected to Discovery server.\n")
-			break
-		}
+
+	conn, err = grpc.DialContext(ctx, disc.address, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return
 	}
+
 	defer conn.Close()
 
+	disc.status = true
 	c := pb.NewESDSClient(conn)
-	stream, err := c.ExposedServicesDiscovery(context.Background())
-	waitc := make(chan struct{})
+	stream, _ := c.ExposedServicesDiscovery(context.Background())
+	waitc := disc.waitChan
 	go func() {
 		for {
 			in, err := stream.Recv()
@@ -123,12 +166,18 @@ func Client(sbr *controllers.ServiceBindingReconciler, address *string) {
 	var note pb.ExposedServicesMessages
 	note.Name = "Yoyo"
 
-	for {
+	select {
+	case <-waitc:
+		stream.CloseSend()
+		return
+	case <-delChan:
+		stream.CloseSend()
+		waitc <- struct{}{}
+		return
+	default:
 		if err := stream.Send(&note); err != nil {
 			log.Fatalf("Failed to send a note: %v", err)
 		}
 		time.Sleep(3 * time.Second)
 	}
-	stream.CloseSend()
-	<-waitc
 }

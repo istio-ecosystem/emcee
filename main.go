@@ -147,9 +147,6 @@ func main() {
 	// +kubebuilder:scaffold:builder
 
 	go discovery.Discovery(&ser, &grpcServerAddr)
-	// if grpcDiscoveryAddr != "" {
-	// 	go discovery.Client(&sbr, &grpcDiscoveryAddr)
-	// }
 	go discovery.ClientStarter(&sbr, controllers.DiscoveryChanel)
 
 	setupLog.Info("starting manager")

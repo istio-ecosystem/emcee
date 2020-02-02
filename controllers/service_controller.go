@@ -34,7 +34,13 @@ type ServiceReconciler struct {
 	DiscoverySelectorVal string
 }
 
-var DiscoveryChanel chan string
+type DiscoveryServer struct {
+	Name      string
+	Address   string
+	Operation string
+}
+
+var DiscoveryChanel chan DiscoveryServer
 
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=services/status,verbs=get;update;patch
@@ -48,21 +54,43 @@ func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
+	var svcAddr, svcPort string
+	var s DiscoveryServer
+	if svc.Spec.Selector[r.DiscoverySelectorKey] == r.DiscoverySelectorVal {
+		if len(svc.Spec.ExternalIPs) > 0 {
+			svcAddr = svc.Spec.ExternalIPs[0]
+		} else {
+			svcAddr = svc.Spec.ClusterIP
+		}
+		svcPort = strconv.Itoa(int(svc.Spec.Ports[0].Port))
+		s = DiscoveryServer{
+			Name:      svc.GetNamespace() + "/" + svc.GetName(),
+			Address:   svcAddr + ":" + svcPort,
+			Operation: "add",
+		}
+	}
+
 	if svc.ObjectMeta.DeletionTimestamp.IsZero() {
-		if svc.Spec.Selector[r.DiscoverySelectorKey] == r.DiscoverySelectorVal {
-			// DiscoveryChanel <- (svc.Spec.ExternalIPs[0] + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)))
-			DiscoveryChanel <- ("127.0.0.1" + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)))
+		if svcAddr != "" {
+			s.Operation = "U"
+			DiscoveryChanel <- s
+			//DiscoveryChanel <- ("127.0.0.1" + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)))
 		}
 		return ctrl.Result{}, nil
 	}
 
 	// The object is being deleted
+	if svcAddr != "" {
+		s.Operation = "D"
+		DiscoveryChanel <- s
+		//DiscoveryChanel <- ("127.0.0.1" + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)))
+	}
 	return ctrl.Result{}, nil
 
 }
 
 func (r *ServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	DiscoveryChanel = make(chan string, 100)
+	DiscoveryChanel = make(chan DiscoveryServer, 100)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&k8sapi.Service{}).
 		Complete(r)
