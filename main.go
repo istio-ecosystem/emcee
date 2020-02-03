@@ -16,6 +16,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -56,7 +57,7 @@ func init() {
 func main() {
 	var (
 		metricsAddr              string
-		context                  string
+		k8sContext               string
 		enableLeaderElection     bool
 		grpcServerAddr           string
 		grpcDiscoverySelector    string
@@ -64,7 +65,7 @@ func main() {
 		grpcDiscoverySelectorVal string
 	)
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&context, "context", "", "Kubernetes context")
+	flag.StringVar(&k8sContext, "context", "", "Kubernetes context")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&grpcServerAddr, "grpc-server-addr", grpcServerAddress, "The address the grpc server endpoint binds to.")
@@ -73,12 +74,12 @@ func main() {
 
 	ctrl.SetLogger(zap.Logger(true))
 
-	cfg, err := mfutil.GetRestConfig("", context)
+	cfg, err := mfutil.GetRestConfig("", k8sContext)
 	if err != nil {
-		setupLog.Error(err, "unable to read config", "context", context)
+		setupLog.Error(err, "unable to read config", "context", k8sContext)
 		os.Exit(1)
 	}
-	setupLog.Info("Loaded config", "context", context)
+	setupLog.Info("Loaded config", "context", k8sContext)
 
 	s := strings.Split(grpcDiscoverySelector, ":")
 	if len(s) == 2 {
@@ -146,8 +147,9 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
+	ctx := context.Background()
 	go discovery.Discovery(&ser, &grpcServerAddr)
-	go discovery.ClientStarter(&sbr, controllers.DiscoveryChanel)
+	go discovery.ClientStarter(ctx, &sbr, controllers.DiscoveryChanel)
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

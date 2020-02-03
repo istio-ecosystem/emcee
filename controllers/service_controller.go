@@ -50,7 +50,7 @@ func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	var svc k8sapi.Service
 
 	if err := r.Get(ctx, req.NamespacedName, &svc); err != nil {
-		log.Warnf("unable to fetch Service resource: %v Must have been deleted", err)
+		log.Warnf("unable to fetch Service resource: %v Must have been deleted %v", err, svc)
 		return ctrl.Result{}, ignoreNotFound(err)
 	}
 
