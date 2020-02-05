@@ -161,8 +161,8 @@ func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscover
 			con.mutex.Lock()
 			if !con.added {
 				con.added = true
-				con.mutex.Unlock()
 				s.addCon(con.ConID, con)
+				con.mutex.Unlock()
 				defer s.removeCon(con.ConID, con)
 			} else {
 				con.mutex.Unlock()

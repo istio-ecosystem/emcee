@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery1
+spec:
+  selector:
+    emcee: discovery
+  ports:
+    - name: http
+      protocol: TCP
+      port: 50052
+  externalIPs:
+    - 9.9.9.9

@@ -16,9 +16,11 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 
@@ -36,8 +38,8 @@ import (
 )
 
 const (
-	grpcServerAddress    = ":50051"
-	grpcDiscoveryAddress = "" // "localhost:50051"
+	grpcServerAddress = ":50051"
+	discoverySelector = "emcee:discovery"
 )
 
 var (
@@ -54,28 +56,36 @@ func init() {
 
 func main() {
 	var (
-		metricsAddr          string
-		context              string
-		enableLeaderElection bool
-		grpcServerAddr       string
-		grpcDiscoveryAddr    string
+		metricsAddr              string
+		k8sContext               string
+		enableLeaderElection     bool
+		grpcServerAddr           string
+		grpcDiscoverySelector    string
+		grpcDiscoverySelectorKey string
+		grpcDiscoverySelectorVal string
 	)
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&context, "context", "", "Kubernetes context")
+	flag.StringVar(&k8sContext, "context", "", "Kubernetes context")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&grpcServerAddr, "grpc-server-addr", grpcServerAddress, "The address the grpc server endpoint binds to.")
-	flag.StringVar(&grpcDiscoveryAddr, "grpc-discovery-addr", grpcDiscoveryAddress, "The grpc server endpoint to connect to.")
+	flag.StringVar(&grpcDiscoverySelector, "discovery-selector", discoverySelector, "The selector for grpc servers to connect to.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
 
-	cfg, err := mfutil.GetRestConfig("", context)
+	cfg, err := mfutil.GetRestConfig("", k8sContext)
 	if err != nil {
-		setupLog.Error(err, "unable to read config", "context", context)
+		setupLog.Error(err, "unable to read config", "context", k8sContext)
 		os.Exit(1)
 	}
-	setupLog.Info("Loaded config", "context", context)
+	setupLog.Info("Loaded config", "context", k8sContext)
+
+	s := strings.Split(grpcDiscoverySelector, ":")
+	if len(s) == 2 {
+		grpcDiscoverySelectorKey = s[0]
+		grpcDiscoverySelectorVal = s[1]
+	}
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
@@ -105,6 +115,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	svcr := controllers.ServiceReconciler{
+		Client:               kclient,
+		Interface:            istioClient,
+		DiscoverySelectorKey: grpcDiscoverySelectorKey,
+		DiscoverySelectorVal: grpcDiscoverySelectorVal,
+		//Log:    ctrl.Log.WithName("controllers").WithName("Service"),
+	}
+
+	if err = (&svcr).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Service")
+		os.Exit(1)
+	}
+
 	ser := controllers.ServiceExpositionReconciler{
 		Client:    kclient,
 		Interface: istioClient,
@@ -126,10 +149,9 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
+	ctx := context.Background()
 	go discovery.Discovery(&ser, &grpcServerAddr)
-	if grpcDiscoveryAddr != "" {
-		go discovery.Client(&sbr, &grpcDiscoveryAddr)
-	}
+	go discovery.ClientStarter(ctx, &sbr, &svcr, controllers.DiscoveryChanel)
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
