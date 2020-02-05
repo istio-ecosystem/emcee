@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
 	"istio.io/pkg/log"
@@ -68,13 +69,17 @@ func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			Address:   svcAddr + ":" + svcPort,
 			Operation: "add",
 		}
+
+		//MBMBMBMBMB
+		if strings.EqualFold(svcAddr, "9.9.9.9") {
+			s.Address = "127.0.0.1" + ":" + svcPort
+		}
 	}
 
 	if svc.ObjectMeta.DeletionTimestamp.IsZero() {
 		if svcAddr != "" {
 			s.Operation = "U"
 			DiscoveryChanel <- s
-			//DiscoveryChanel <- ("127.0.0.1" + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)))
 		}
 		return ctrl.Result{}, nil
 	}
@@ -83,7 +88,6 @@ func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if svcAddr != "" {
 		s.Operation = "D"
 		DiscoveryChanel <- s
-		//DiscoveryChanel <- ("127.0.0.1" + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)))
 	}
 	return ctrl.Result{}, nil
 

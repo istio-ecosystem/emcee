@@ -115,13 +115,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ServiceReconciler{
+	svcr := controllers.ServiceReconciler{
 		Client:               kclient,
 		Interface:            istioClient,
 		DiscoverySelectorKey: grpcDiscoverySelectorKey,
 		DiscoverySelectorVal: grpcDiscoverySelectorVal,
 		//Log:    ctrl.Log.WithName("controllers").WithName("Service"),
-	}).SetupWithManager(mgr); err != nil {
+	}
+
+	if err = (&svcr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Service")
 		os.Exit(1)
 	}
@@ -149,7 +151,7 @@ func main() {
 
 	ctx := context.Background()
 	go discovery.Discovery(&ser, &grpcServerAddr)
-	go discovery.ClientStarter(ctx, &sbr, controllers.DiscoveryChanel)
+	go discovery.ClientStarter(ctx, &sbr, &svcr, controllers.DiscoveryChanel)
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

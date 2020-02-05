@@ -10,4 +10,4 @@ spec:
       protocol: TCP
       port: 50052
   externalIPs:
-    - 9.8.8.8
+    - 9.9.9.9
