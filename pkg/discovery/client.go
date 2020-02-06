@@ -23,7 +23,6 @@ import (
 	"errors"
 	"io"
 	"strings"
-	"sync"
 	"time"
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
@@ -60,16 +59,13 @@ type discoveryClient struct {
 
 var discoveryServices map[string]*discoveryClient
 
-// TODO use a set of per entry mutexes if need be
-var discoveryMutex sync.Mutex
-
 func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService, name string) *mmv1.ServiceBinding {
 	return &mmv1.ServiceBinding{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ServiceBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      in.Name, //strings.ToLower(strings.Replace(name, " ", "", -1)),
+			Name:      in.Name,
 			Namespace: "default",
 		},
 		Spec: mmv1.ServiceBindingSpec{
@@ -98,7 +94,7 @@ func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.Exp
 func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconciler,
 	svcr *controllers.ServiceReconciler, discoveryChannel chan controllers.DiscoveryServer) {
 	discoveryServices = make(map[string]*discoveryClient)
-	go clientMonitor(ctx, sbr, svcr)
+	monitor := time.NewTicker(connMonitorSeconds * time.Millisecond)
 	for {
 		select {
 		case svc := <-discoveryChannel:
@@ -116,9 +112,7 @@ func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconcile
 						//cancel:   cancel, // to be set when starting client
 						status: clientNew,
 					}
-					discoveryMutex.Lock()
 					discoveryServices[svc.Name] = &dc
-					discoveryMutex.Unlock()
 				} else {
 					// This is in response to an update to service
 					// If address has changed, kill the existing client
@@ -129,10 +123,7 @@ func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconcile
 						if discoveryServices[svc.Name].status == clientConnected {
 							discoveryServices[svc.Name].waitChan <- struct{}{}
 						}
-						discoveryMutex.Lock()
 						delete(discoveryServices, svc.Name)
-						discoveryMutex.Unlock()
-
 						waitc := make(chan struct{})
 						dc := discoveryClient{
 							name:     svc.Name,
@@ -153,76 +144,63 @@ func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconcile
 					if discoveryServices[svc.Name].status == clientConnected {
 						discoveryServices[svc.Name].waitChan <- struct{}{}
 					}
-					discoveryMutex.Lock()
 					delete(discoveryServices, svc.Name)
-					discoveryMutex.Unlock()
 				}
 			}
-		}
-	}
-}
-
-func clientMonitor(ctx context.Context, sbr *controllers.ServiceBindingReconciler, svcr *controllers.ServiceReconciler) {
-	for {
-		for k, v := range discoveryServices {
-			var oldsvc k8sapi.Service
-			ns, n, err := getNamespceAndName(v.name)
-			if err == nil {
-				key := types.NamespacedName{
-					Namespace: ns,
-					Name:      n,
-				}
-				err := svcr.Get(context.Background(), key, &oldsvc)
+		case <-monitor.C:
+			for k, v := range discoveryServices {
+				var oldsvc k8sapi.Service
+				ns, n, err := getNamespceAndName(v.name)
 				if err == nil {
-					discoveryMutex.Lock()
-					switch v.status {
-					case clientNew:
-						v.status = clientSched
-						go Client(ctx, sbr, v)
-					case clientTimedout:
-						// if svc still exists, reschedule client
-						delete(discoveryServices, k)
-
-						waitc := make(chan struct{})
-						dc := discoveryClient{
-							name:     v.name,
-							address:  v.address,
-							waitChan: waitc,
-							// cancel:   cancel,
-							status: clientNew,
-						}
-						discoveryServices[k] = &dc
-					case clientCanceled:
-						// Not dealing with cancels here yet.
-						delete(discoveryServices, k)
-					case clientConnected:
-						// do nothing
-					case clientSched:
-						// do nothing
+					key := types.NamespacedName{
+						Namespace: ns,
+						Name:      n,
 					}
-					discoveryMutex.Unlock()
+					err := svcr.Get(context.Background(), key, &oldsvc)
+					if err == nil {
+						switch v.status {
+						case clientNew:
+							v.status = clientSched
+							go client(ctx, sbr, v)
+						case clientTimedout:
+							// if svc still exists, reschedule client
+							delete(discoveryServices, k)
+
+							waitc := make(chan struct{})
+							dc := discoveryClient{
+								name:     v.name,
+								address:  v.address,
+								waitChan: waitc,
+								// cancel:   cancel,
+								status: clientNew,
+							}
+							discoveryServices[k] = &dc
+						case clientCanceled:
+							// Not dealing with cancels here yet.
+							delete(discoveryServices, k)
+						case clientConnected:
+							// do nothing
+						case clientSched:
+							// do nothing
+						}
+					} else {
+						// svc has been deleted, (if already connected) stop the client
+						v.cancel()
+						v.waitChan <- struct{}{}
+						delete(discoveryServices, k)
+					}
 				} else {
-					// svc has been deleted, (if already connected) stop the client
-					v.cancel()
-					v.waitChan <- struct{}{}
-					discoveryMutex.Lock()
+					// shouldn't get here.
+					log.Warnf("Incorrect key for a discovery server. Deleting it: key: %v value: %v", k, v)
 					delete(discoveryServices, k)
-					discoveryMutex.Unlock()
 				}
-			} else {
-				// shouldn't get here.
-				log.Warnf("Incorrect key for a discovery server. Deleting it: key: %v value: %v", k, v)
-				discoveryMutex.Lock()
-				delete(discoveryServices, k)
-				discoveryMutex.Unlock()
 			}
 		}
-		time.Sleep(connMonitorSeconds * time.Second)
 	}
 }
 
 // Client is the ESDS grpc client
-func Client(ctx context.Context, sbr *controllers.ServiceBindingReconciler, disc *discoveryClient) {
+func client(ctx context.Context, sbr *controllers.ServiceBindingReconciler, disc *discoveryClient) {
 	// Set up a connection to the server.
 	var err error
 	var conn *grpc.ClientConn = nil
@@ -233,13 +211,11 @@ func Client(ctx context.Context, sbr *controllers.ServiceBindingReconciler, disc
 
 	if err != nil {
 		log.Infof("Did not connect to %v. Error: %v", disc.address, err)
-		discoveryMutex.Lock()
 		if strings.Contains(err.Error(), "context deadline exceeded") {
 			disc.status = clientTimedout
 		} else {
 			disc.status = clientCanceled
 		}
-		discoveryMutex.Unlock()
 		return
 	}
 
@@ -248,9 +224,7 @@ func Client(ctx context.Context, sbr *controllers.ServiceBindingReconciler, disc
 	c := pb.NewESDSClient(conn)
 	stream, _ := c.ExposedServicesDiscovery(ctx)
 	waitc := disc.waitChan
-	discoveryMutex.Lock()
 	disc.status = clientConnected
-	discoveryMutex.Unlock()
 
 	var note pb.ExposedServicesMessages
 	note.Name = "Request from client"
