@@ -42,7 +42,6 @@ const (
 	connTimeoutSeconds = 10
 	connMonitorSeconds = 3
 
-	clientNew       = 0
 	clientSched     = 1
 	clientTimedout  = 2
 	clientCanceled  = 3
@@ -110,9 +109,10 @@ func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconcile
 						address:  svc.Address,
 						waitChan: waitc,
 						//cancel:   cancel, // to be set when starting client
-						status: clientNew,
+						status: clientSched,
 					}
 					discoveryServices[svc.Name] = &dc
+					go client(ctx, sbr, &dc)
 				} else {
 					// This is in response to an update to service
 					// If address has changed, kill the existing client
@@ -130,9 +130,10 @@ func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconcile
 							address:  svc.Address,
 							waitChan: waitc,
 							// cancel:   cancel, // to be set when starting client
-							status: clientNew,
+							status: clientSched,
 						}
 						discoveryServices[svc.Name] = &dc
+						go client(ctx, sbr, &dc)
 					}
 
 				}
@@ -159,9 +160,6 @@ func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconcile
 					err := svcr.Get(context.Background(), key, &oldsvc)
 					if err == nil {
 						switch v.status {
-						case clientNew:
-							v.status = clientSched
-							go client(ctx, sbr, v)
 						case clientTimedout:
 							// if svc still exists, reschedule client
 							delete(discoveryServices, k)
@@ -172,9 +170,10 @@ func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconcile
 								address:  v.address,
 								waitChan: waitc,
 								// cancel:   cancel,
-								status: clientNew,
+								status: clientSched,
 							}
 							discoveryServices[k] = &dc
+							go client(ctx, sbr, &dc)
 						case clientCanceled:
 							// Not dealing with cancels here yet.
 							delete(discoveryServices, k)
