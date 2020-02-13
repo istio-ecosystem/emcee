@@ -113,7 +113,7 @@ startup1() {
     # Start cluster1 controller
     LOG1=$TMPDIR/log1
     ERR1=$TMPDIR/err1
-    $BASEDIR/bin/manager --context $CLUSTER1 --metrics-addr ":8080" > $LOG1 2> $ERR1 &
+    $BASEDIR/bin/manager --context $CLUSTER1 --metrics-addr ":8080" --grpc-server-addr ":50051" > $LOG1 2> $ERR1 &
     MANAGER_1_PID=$!
     echo MANAGER_1_PID is $MANAGER_1_PID
 }
@@ -122,7 +122,7 @@ startup2() {
     # Start cluster2 controller
     LOG2=$TMPDIR/log2
     ERR2=$TMPDIR/err2
-    $BASEDIR/bin/manager --context $CLUSTER2 --metrics-addr ":8081" > $LOG2 2> $ERR2 &
+    $BASEDIR/bin/manager --context $CLUSTER2 --metrics-addr ":8081" --grpc-server-addr ":50052" > $LOG2 2> $ERR2 &
     MANAGER_2_PID=$!
     echo MANAGER_2_PID is $MANAGER_2_PID
 
@@ -305,6 +305,7 @@ main() {
     # Wait for controllers to be up
     # TODO is there a cleaner way?
     while [ "$(curl -s -o /dev/null -w "%{http_code}" localhost:8080)" != "404" ]; do
+        echo " trying localhost:8080 ...."
         sleep 1
     done
 

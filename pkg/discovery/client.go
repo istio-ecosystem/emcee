@@ -115,9 +115,8 @@ func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconcile
 					go client(ctx, sbr, &dc)
 				} else {
 					// This is in response to an update to service
-					// If address has changed, kill the existing client
-					// and start a new one
-					// TODO: using a version entry, we could delegate this to the mon
+					// If address has changed, kill the existing client and start a new one
+					// TODO: using a versioned entry, we could delegate this to the mon
 					if discoveryServices[svc.Name].address != svc.Address {
 						discoveryServices[svc.Name].cancel()
 						if discoveryServices[svc.Name].status == clientConnected {
@@ -217,7 +216,6 @@ func client(ctx context.Context, sbr *controllers.ServiceBindingReconciler, disc
 		}
 		return
 	}
-
 	defer conn.Close()
 
 	c := pb.NewESDSClient(conn)
