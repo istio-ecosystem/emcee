@@ -118,7 +118,7 @@ func receiveThread(stream pb.ESDS_ExposedServicesDiscoveryServer, reqChannel cha
 func updateThread(updateChannel chan int, updateError *error) {
 	for {
 		select {
-		case _ = <-updateChannel:
+		case <-updateChannel:
 			for _, v := range esdsClients {
 				v.pushChannel <- &EsdsEvent{}
 			}
@@ -139,8 +139,6 @@ func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscover
 	var receiveError error
 	reqChannel := make(chan *pb.ExposedServicesMessages, 1)
 	go receiveThread(con.stream, reqChannel, &receiveError)
-	var updateError error
-	go updateThread(controllers.UpdateChannel, &updateError)
 
 	for {
 		// Block until either a request is received or a push is triggered.
@@ -167,7 +165,7 @@ func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscover
 			} else {
 				con.mutex.Unlock()
 			}
-		case _ = <-con.pushChannel:
+		case <-con.pushChannel:
 			log.Infof("Received a new UPDATE")
 			in := pb.ExposedServicesMessages{
 				Name: "Eventer",
@@ -177,6 +175,7 @@ func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscover
 			err := stream.Send(&out)
 			//pushEv.done()
 			if err != nil {
+				log.Fatalf("Discovery Server failed.")
 				return nil
 			}
 		}
@@ -185,11 +184,13 @@ func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscover
 
 // Discovery creates a grpc server
 func Discovery(ser *controllers.ServiceExpositionReconciler, grpcServerAddr *string) {
-
+	var updateError error
 	if ser == nil {
 		log.Fatalf("Need Service Exposition Reconciler; None provided")
 	}
 	seReconciler = ser
+	controllers.UpdateChannel = make(chan int, 1)
+	go updateThread(controllers.UpdateChannel, &updateError)
 
 	lis, err := net.Listen("tcp", *grpcServerAddr)
 	if err != nil {
