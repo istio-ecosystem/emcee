@@ -81,8 +81,12 @@ func getAllExposedService(z, in *pb.ExposedServicesMessages) {
 
 	if err == nil {
 		for _, v := range list.Items {
+			name := v.Spec.Name
+			if v.Spec.Alias != "" {
+				name = v.Spec.Alias
+			}
 			entry := pb.ExposedServicesMessages_ExposedService{
-				Name:                  v.Spec.Name,
+				Name:                  name,
 				Port:                  v.Spec.Port,
 				MeshFedConfigSelector: v.Spec.MeshFedConfigSelector,
 			}

@@ -41,6 +41,15 @@ if [[ $MODE != "limited-trust" && $MODE != "passthrough" ]];then
     exit 1
 fi
 
+if [ -z "$2" ]
+  then
+    AUTO="NO"
+  else
+    AUTO=$2
+fi
+if [[ $AUTO = "auto" ]];then
+    AUTO="YES"
+fi
 
 if [[ $MODE = "passthrough" ]];then
     if ! hash istioctl 2>/dev/null
@@ -304,8 +313,9 @@ main() {
 
     # Wait for controllers to be up
     # TODO is there a cleaner way?
+    echo "Trying the controller at localhost:8080 ...."
     while [ "$(curl -s -o /dev/null -w "%{http_code}" localhost:8080)" != "404" ]; do
-        echo " trying localhost:8080 ...."
+        echo "."
         sleep 1
     done
 
@@ -314,8 +324,12 @@ main() {
 
     kubectl --context $CLUSTER1 apply -f $BASEDIR/samples/$MODE/$MODE-c1.yaml
 
-    # Bind helloworld to the actual dynamic exposed public IP
-    cat $BASEDIR/samples/$MODE/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
+    if [ "$AUTO" = "NO" ]; then
+       # Bind helloworld to the actual dynamic exposed public IP
+       cat $BASEDIR/samples/$MODE/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
+    else
+       kubectl --context $CLUSTER3  apply -f $BASEDIR/samples/service_discovery.yaml
+    fi
 
     # Wait for the exposure to be affected
     until kubectl --context $CLUSTER1 get service helloworld ; do
@@ -330,18 +344,19 @@ main() {
     # End to end test with alias in expose side
     kubectl --context $CLUSTER2 apply -f $BASEDIR/test/integration/common/holamundo.yaml
     kubectl --context $CLUSTER2 delete ServiceExposition helloworld
-    sleep 1
+    sleep 10
     kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/$MODE/helloworld-expose-with-alias.yaml
     sleep 5
     end_to_end  "helloworld"
 
-    # End to end test with alias in bind side
-    kubectl --context $CLUSTER1 delete ServiceBinding helloworld
-    sleep 1
-    cat $BASEDIR/samples/$MODE/helloworld-binding-with-alias.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
-    sleep 5
-    end_to_end "helloworldyall"
-
+    if [ "$AUTO" = "NO" ]; then  
+       # End to end test with alias in bind side
+       kubectl --context $CLUSTER1 delete ServiceBinding helloworld
+       sleep 1
+       cat $BASEDIR/samples/$MODE/helloworld-binding-with-alias.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
+       sleep 5
+       end_to_end "helloworldyall"
+    fi
 }
 
 trap shutdowns EXIT

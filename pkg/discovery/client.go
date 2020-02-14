@@ -73,6 +73,7 @@ func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService, name strin
 			Port:                  in.Port,
 			MeshFedConfigSelector: in.MeshFedConfigSelector,
 			Endpoints:             in.Endpoints,
+			// TODO Alias: in.Alias,
 		},
 	}
 }
