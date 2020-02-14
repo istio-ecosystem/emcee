@@ -43,9 +43,6 @@ var x int
 
 func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	if UpdateChannel == nil {
-		UpdateChannel = make(chan int, 1)
-	}
 	myFinalizerName := "mm.ibm.istio.io"
 	var exposition mmv1.ServiceExposition
 
@@ -60,14 +57,11 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 		if exposition.ObjectMeta.DeletionTimestamp.IsZero() {
 			// log.Warnf("SE did not find an mfc. will requeue the request: %v", err)
 			return ctrl.Result{Requeue: true}, nil
-		} else {
-			// log.Warnf("SE did not find an mfc. being deleted. not requeueing: %v", err)
-			exposition.ObjectMeta.Finalizers = removeString(exposition.ObjectMeta.Finalizers, myFinalizerName)
-			if err := r.Update(context.Background(), &exposition); err != nil {
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{}, nil
 		}
+		// log.Warnf("SE did not find an mfc. being deleted. not requeueing: %v", err)
+		exposition.ObjectMeta.Finalizers = removeString(exposition.ObjectMeta.Finalizers, myFinalizerName)
+		err := r.Update(context.Background(), &exposition)
+		return ctrl.Result{}, err
 	}
 
 	styleReconciler, err := GetExposureReconciler(&mfc, r.Client, r.Interface)
