@@ -42,8 +42,8 @@ import (
 )
 
 type boundaryProtection struct {
-	cli      client.Client
-	istioCli istioclient.Interface
+	client.Client
+	istioclient.Interface
 }
 
 var (
@@ -60,24 +60,24 @@ const (
 // NewBoundaryProtectionMeshFedConfig creates a "Boundary Protection" style implementation for handling MeshFedConfig
 func NewBoundaryProtectionMeshFedConfig(cli client.Client, istioCli istioclient.Interface) style.MeshFedConfig {
 	return &boundaryProtection{
-		cli:      cli,
-		istioCli: istioCli,
+		cli,
+		istioCli,
 	}
 }
 
 // NewBoundaryProtectionServiceExposer creates a "Boundary Protection" style implementation for handling ServiceExposure
 func NewBoundaryProtectionServiceExposer(cli client.Client, istioCli istioclient.Interface) style.ServiceExposer {
 	return &boundaryProtection{
-		cli:      cli,
-		istioCli: istioCli,
+		cli,
+		istioCli,
 	}
 }
 
 // NewBoundaryProtectionServiceBinder creates a "Boundary Protection" style implementation for handling ServiceBinding
 func NewBoundaryProtectionServiceBinder(cli client.Client, istioCli istioclient.Interface) style.ServiceBinder {
 	return &boundaryProtection{
-		cli:      cli,
-		istioCli: istioCli,
+		cli,
+		istioCli,
 	}
 }
 
@@ -91,7 +91,7 @@ func (bp *boundaryProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 
 	targetNamespace := mfc.GetNamespace()
 
-	secret, err := getSecretName(ctx, mfc, bp.cli)
+	secret, err := getSecretName(ctx, mfc, bp.Client)
 	if err != nil {
 		log.Infof("Could not get secret name from MeshFedConfig: %v", err)
 		return err
@@ -104,7 +104,7 @@ func (bp *boundaryProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 		int32(mfc.Spec.EgressGatewayPort),
 		mfc.Spec.EgressGatewaySelector, mfc)
 
-	err = bp.cli.Create(ctx, &egressSvc)
+	err = bp.Client.Create(ctx, &egressSvc)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
 		log.Infof("Failed to create Egress Service %s.%s: %v",
 			egressSvc.GetName(), egressSvc.GetNamespace(), err)
@@ -142,7 +142,7 @@ func (bp *boundaryProtection) EffectMeshFedConfig(ctx context.Context, mfc *mmv1
 		targetNamespace,
 		int32(mfc.Spec.IngressGatewayPort),
 		mfc.Spec.IngressGatewaySelector, mfc)
-	err = bp.cli.Create(ctx, &ingressSvc)
+	err = bp.Client.Create(ctx, &ingressSvc)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
 		log.Infof("Failed to create Ingress Service %s.%s: %v",
 			ingressSvc.GetName(), ingressSvc.GetNamespace(), err)
@@ -190,27 +190,27 @@ func (bp *boundaryProtection) EffectServiceExposure(ctx context.Context, se *mmv
 		return err
 	}
 
-	_, err = createGateway(bp.istioCli, mfc.GetNamespace(), gw)
+	_, err = createGateway(bp.Interface, mfc.GetNamespace(), gw)
 
 	if err != nil {
 		log.Warnf("could not create gateway %v %v", gw, err)
 		return err
 	}
-	_, err = createVirtualService(bp.istioCli, mfc.GetNamespace(), vs)
+	_, err = createVirtualService(bp.Interface, mfc.GetNamespace(), vs)
 	if err != nil {
 		log.Warnf("could not create virtual service %v %v", vs, err)
 		return err
 	}
 
 	// get the endpoints
-	eps, err := mfutil.GetIngressEndpoints(ctx, bp.cli, mfc.GetName(), mfc.GetNamespace(), defaultGatewayPort)
+	eps, err := mfutil.GetIngressEndpoints(ctx, bp.Client, mfc.GetName(), mfc.GetNamespace(), defaultGatewayPort)
 	if err != nil {
 		log.Warnf("could not get endpoints %v %v", eps, err)
 		return err
 	}
 	se.Spec.Endpoints = eps
 	se.Status.Ready = true
-	if err := bp.cli.Update(ctx, se); err != nil {
+	if err := bp.Client.Update(ctx, se); err != nil {
 		return err
 	}
 	return nil
@@ -360,7 +360,7 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 			Namespace: goalSvcRemoteCluster.GetNamespace(),
 		},
 	}
-	or, err := controllerutil.CreateOrUpdate(ctx, bp.cli, svcRemoteCluster, func() error {
+	or, err := controllerutil.CreateOrUpdate(ctx, bp.Client, svcRemoteCluster, func() error {
 		svcRemoteCluster.ObjectMeta.Labels = goalSvcRemoteCluster.Labels
 		svcRemoteCluster.ObjectMeta.OwnerReferences = goalSvcRemoteCluster.ObjectMeta.OwnerReferences
 		// Update the Spec fields WITHOUT clearing .Spec.ClusterIP
@@ -379,7 +379,7 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 
 	// Create an Istio destination rule for the remote Ingress, if needed
 	drRemoteCluster := boundaryProtectionRemoteDestinationRule(targetNamespace, mfc, sb)
-	_, err = createDestinationRule(bp.istioCli, targetNamespace, &drRemoteCluster)
+	_, err = createDestinationRule(bp.Interface, targetNamespace, &drRemoteCluster)
 	if err != nil {
 		log.Warnf("Failed creating/updating Istio destination rule %v: %v", drRemoteCluster.GetName(), err)
 		return err
@@ -392,7 +392,7 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 			Namespace: goalSvcLocalFacade.GetNamespace(),
 		},
 	}
-	or, err = controllerutil.CreateOrUpdate(ctx, bp.cli, svcLocalFacade, func() error {
+	or, err = controllerutil.CreateOrUpdate(ctx, bp.Client, svcLocalFacade, func() error {
 		svcLocalFacade.ObjectMeta.Labels = goalSvcLocalFacade.Labels
 		svcLocalFacade.ObjectMeta.OwnerReferences = goalSvcLocalFacade.ObjectMeta.OwnerReferences
 		// Update the Spec fields WITHOUT clearing .Spec.ClusterIP
@@ -416,7 +416,7 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 			Namespace: goalSvcLocalEgress.GetNamespace(),
 		},
 	}
-	or, err = controllerutil.CreateOrUpdate(ctx, bp.cli, svcLocalEgress, func() error {
+	or, err = controllerutil.CreateOrUpdate(ctx, bp.Client, svcLocalEgress, func() error {
 		svcLocalEgress.ObjectMeta.Labels = goalSvcLocalEgress.Labels
 		svcLocalEgress.ObjectMeta.OwnerReferences = goalSvcLocalEgress.ObjectMeta.OwnerReferences
 		// Update the Spec fields WITHOUT clearing .Spec.ClusterIP
@@ -433,28 +433,28 @@ func (bp *boundaryProtection) EffectServiceBinding(ctx context.Context, sb *mmv1
 		renderName(&svcLocalEgress.ObjectMeta))
 
 	svcLocalGateway := boundaryProtectionLocalServiceGateway(comboName, targetNamespace, sb, mfc)
-	_, err = createGateway(bp.istioCli, targetNamespace, &svcLocalGateway)
+	_, err = createGateway(bp.Interface, targetNamespace, &svcLocalGateway)
 	if err != nil {
 		log.Warnf("Failed creating/updating Istio gateway %v: %v", svcLocalGateway.GetName(), err)
 		return err
 	}
 
 	svcLocalDR := boundaryProtectionLocalServiceDestinationRule(comboName, targetNamespace, sb, mfc)
-	_, err = createDestinationRule(bp.istioCli, targetNamespace, &svcLocalDR)
+	_, err = createDestinationRule(bp.Interface, targetNamespace, &svcLocalDR)
 	if err != nil {
 		log.Warnf("Failed creating/updating Istio destination rule %v: %v", svcLocalDR.GetName(), err)
 		return err
 	}
 
 	vsEgressExternal := boundaryProtectionEgressExternalVirtualService(comboName, targetNamespace, sb, mfc)
-	_, err = createVirtualService(bp.istioCli, targetNamespace, &vsEgressExternal)
+	_, err = createVirtualService(bp.Interface, targetNamespace, &vsEgressExternal)
 	if err != nil {
 		log.Warnf("Failed creating/updating Istio virtual service %v: %v", vsEgressExternal.GetName(), err)
 		return err
 	}
 
 	vsLocalToEgress := boundaryProtectionLocalToEgressVirtualService(comboName, sb, mfc)
-	_, err = createVirtualService(bp.istioCli, localNamespace, &vsLocalToEgress)
+	_, err = createVirtualService(bp.Interface, localNamespace, &vsLocalToEgress)
 	if err != nil {
 		log.Warnf("Failed creating/updating Istio virtual service %v: %v", vsLocalToEgress.GetName(), err)
 		return err
@@ -861,7 +861,7 @@ func ownerReference(apiVersion, kind string, owner metav1.ObjectMeta) []metav1.O
 
 func (bp *boundaryProtection) workloadMatches(ctx context.Context, namespace string, selector labels.Selector) (int, error) {
 	var matches corev1.PodList
-	err := bp.cli.List(ctx, &matches, &client.ListOptions{
+	err := bp.Client.List(ctx, &matches, &client.ListOptions{
 		Namespace:     namespace,
 		LabelSelector: selector,
 	})
@@ -875,7 +875,7 @@ func (bp *boundaryProtection) workloadMatches(ctx context.Context, namespace str
 func (bp *boundaryProtection) createEgressDeployment(ctx context.Context, mfc *mmv1.MeshFedConfig, targetNamespace, secret string) error {
 	egressSA := boundaryProtectionEgressServiceAccount(mfc.GetName(),
 		targetNamespace, mfc)
-	err := bp.cli.Create(ctx, &egressSA)
+	err := bp.Client.Create(ctx, &egressSA)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
 		log.Infof("Failed to create Egress ServiceAccount %s.%s: %v",
 			egressSA.GetName(), egressSA.GetNamespace(), err)
@@ -887,7 +887,7 @@ func (bp *boundaryProtection) createEgressDeployment(ctx context.Context, mfc *m
 
 	egressDeployment := boundaryProtectionEgressDeployment(mfc.GetName()+"-egressgateway",
 		targetNamespace, mfc.Spec.EgressGatewaySelector, &egressSA, secret, mfc)
-	err = bp.cli.Create(ctx, &egressDeployment)
+	err = bp.Client.Create(ctx, &egressDeployment)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
 		log.Infof("Failed to create Egress Deployment %s.%s: %v",
 			egressDeployment.GetName(), egressDeployment.GetNamespace(), err)
@@ -902,7 +902,7 @@ func (bp *boundaryProtection) createEgressDeployment(ctx context.Context, mfc *m
 func (bp *boundaryProtection) createIngressDeployment(ctx context.Context, mfc *mmv1.MeshFedConfig, targetNamespace, secret string) error {
 	ingressSA := boundaryProtectionIngressServiceAccount(mfc.GetName(),
 		targetNamespace, mfc)
-	err := bp.cli.Create(ctx, &ingressSA)
+	err := bp.Client.Create(ctx, &ingressSA)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
 		log.Infof("Failed to create Ingress ServiceAccount %s.%s: %v",
 			ingressSA.GetName(), ingressSA.GetNamespace(), err)
@@ -914,7 +914,7 @@ func (bp *boundaryProtection) createIngressDeployment(ctx context.Context, mfc *
 
 	ingressDeployment := boundaryProtectionIngressDeployment(mfc.GetName()+"-ingressgateway",
 		targetNamespace, mfc.Spec.IngressGatewaySelector, &ingressSA, secret, mfc)
-	err = bp.cli.Create(ctx, &ingressDeployment)
+	err = bp.Client.Create(ctx, &ingressDeployment)
 	if err != nil && !mfutil.ErrorAlreadyExists(err) {
 		log.Infof("Failed to create Ingress Deployment %s.%s: %v",
 			ingressDeployment.GetName(), ingressDeployment.GetNamespace(), err)

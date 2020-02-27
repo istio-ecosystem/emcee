@@ -70,7 +70,7 @@ func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			Operation: "add",
 		}
 
-		//MBMBMBMBMB
+		// TODO: For early testing only. Fix.
 		if strings.EqualFold(svcAddr, "9.9.9.9") {
 			s.Address = "127.0.0.1" + ":" + svcPort
 		}
