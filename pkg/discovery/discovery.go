@@ -141,7 +141,7 @@ func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscover
 	con := newEsdsConnection(peerAddr, stream)
 
 	var receiveError error
-	reqChannel := make(chan *pb.ExposedServicesMessages, 1)
+	reqChannel := make(chan *pb.ExposedServicesMessages)
 	go receiveThread(con.stream, reqChannel, &receiveError)
 
 	for {
@@ -163,9 +163,9 @@ func (s *server) ExposedServicesDiscovery(stream pb.ESDS_ExposedServicesDiscover
 			con.mutex.Lock()
 			if !con.added {
 				con.added = true
-				s.addCon(con.ConID, con)
+				addCon(con.ConID, con)
 				con.mutex.Unlock()
-				defer s.removeCon(con.ConID, con)
+				defer removeCon(con.ConID, con)
 			} else {
 				con.mutex.Unlock()
 			}
@@ -193,7 +193,7 @@ func Discovery(ser *controllers.ServiceExpositionReconciler, grpcServerAddr *str
 		log.Fatalf("Need Service Exposition Reconciler; None provided")
 	}
 	seReconciler = ser
-	controllers.UpdateChannel = make(chan int, 1)
+	controllers.UpdateChannel = make(chan int)
 	go updateThread(controllers.UpdateChannel, &updateError)
 
 	lis, err := net.Listen("tcp", *grpcServerAddr)
@@ -219,13 +219,13 @@ func newEsdsConnection(peerAddr string, stream pb.ESDS_ExposedServicesDiscoveryS
 	}
 }
 
-func (s *server) addCon(conID string, con *EsdsConnection) {
+func addCon(conID string, con *EsdsConnection) {
 	esdsClientsMutex.Lock()
 	defer esdsClientsMutex.Unlock()
 	esdsClients[conID] = con
 }
 
-func (s *server) removeCon(conID string, con *EsdsConnection) {
+func removeCon(conID string, con *EsdsConnection) {
 	esdsClientsMutex.Lock()
 	defer esdsClientsMutex.Unlock()
 

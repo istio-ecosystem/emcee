@@ -36,8 +36,8 @@ import (
 
 // Passthrough has clients for k8s and Istio
 type Passthrough struct {
-	cli      client.Client
-	istioCli istioclient.Interface
+	client.Client
+	istioclient.Interface
 }
 
 var (
@@ -55,24 +55,24 @@ const (
 // NewPassthroughMeshFedConfig creates a "Passthrough" style implementation for handling MeshFedConfig
 func NewPassthroughMeshFedConfig(cli client.Client, istioCli istioclient.Interface) style.MeshFedConfig {
 	return &Passthrough{
-		cli:      cli,
-		istioCli: istioCli,
+		cli,
+		istioCli,
 	}
 }
 
 // NewPassthroughServiceExposer creates a "Passthrough" style implementation for handling ServiceExposure
 func NewPassthroughServiceExposer(cli client.Client, istioCli istioclient.Interface) style.ServiceExposer {
 	return &Passthrough{
-		cli:      cli,
-		istioCli: istioCli,
+		cli,
+		istioCli,
 	}
 }
 
 // NewPassthroughServiceBinder creates a "Passthrough" style implementation for handling ServiceBinding
 func NewPassthroughServiceBinder(cli client.Client, istioCli istioclient.Interface) style.ServiceBinder {
 	return &Passthrough{
-		cli:      cli,
-		istioCli: istioCli,
+		cli,
+		istioCli,
 	}
 }
 
@@ -81,12 +81,12 @@ func NewPassthroughServiceBinder(cli client.Client, istioCli istioclient.Interfa
 // ***************************
 
 // EffectMeshFedConfig does not do anything for the passthrough mode
-func (bp *Passthrough) EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
+func (pt *Passthrough) EffectMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	return nil
 }
 
 // RemoveMeshFedConfig does not do anything for the passthrough mode
-func (bp *Passthrough) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
+func (pt *Passthrough) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFedConfig) error {
 	return nil
 }
 
@@ -95,9 +95,9 @@ func (bp *Passthrough) RemoveMeshFedConfig(ctx context.Context, mfc *mmv1.MeshFe
 // *****************************
 
 // EffectServiceExposure ...
-func (bp *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
+func (pt *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
 
-	eps, err := GetIngressEndpointsNoPort(ctx, bp.cli, "istio-ingressgateway", "istio-system", defaultIngressPort)
+	eps, err := GetIngressEndpointsNoPort(ctx, pt.Client, "istio-ingressgateway", "istio-system", defaultIngressPort)
 	if err != nil {
 		log.Warnf("could not get endpoints %v %v", eps, err)
 		return err
@@ -105,25 +105,25 @@ func (bp *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.Servi
 	se.Spec.Endpoints = eps
 
 	dr := passthroughExposingDestinationRule(mfc, se)
-	_, err = createDestinationRule(bp.istioCli, se.GetNamespace(), dr)
+	_, err = createDestinationRule(pt.Interface, se.GetNamespace(), dr)
 	if err != nil {
 		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
 	}
 
 	gw, _ := passthroughExposingGateway(mfc, se)
-	_, err = createGateway(bp.istioCli, se.GetNamespace(), gw)
+	_, err = createGateway(pt.Interface, se.GetNamespace(), gw)
 	if err != nil {
 		log.Warnf("Could not created the Gateway %v: %v", gw.GetName(), err)
 	}
 
 	vs, _ := passthroughExposingVirtualService(mfc, se)
-	_, err = createVirtualService(bp.istioCli, se.GetNamespace(), vs)
+	_, err = createVirtualService(pt.Interface, se.GetNamespace(), vs)
 	if err != nil {
 		log.Warnf("Could not created the Virtual Service %v: %v", vs.GetName(), err)
 	}
 
 	se.Status.Ready = true
-	if err := bp.cli.Update(ctx, se); err != nil {
+	if err := pt.Client.Update(ctx, se); err != nil {
 		return err
 	}
 
@@ -131,7 +131,7 @@ func (bp *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.Servi
 }
 
 // RemoveServiceExposure ...
-func (bp *Passthrough) RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
+func (pt *Passthrough) RemoveServiceExposure(ctx context.Context, se *mmv1.ServiceExposition, mfc *mmv1.MeshFedConfig) error {
 	return nil
 }
 
@@ -140,16 +140,16 @@ func (bp *Passthrough) RemoveServiceExposure(ctx context.Context, se *mmv1.Servi
 // ****************************
 
 // EffectServiceBinding ...
-func (bp *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
+func (pt *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 
 	serviceEntry := passthroughBindingServiceEntry(mfc, sb)
-	_, err := createServiceEntry(bp.istioCli, sb.GetNamespace(), serviceEntry)
+	_, err := createServiceEntry(pt.Interface, sb.GetNamespace(), serviceEntry)
 	if err != nil {
 		log.Warnf("Could not created the Service Entry %v: %v", serviceEntry.GetName(), err)
 	}
 
 	dr := passthroughBindingDestinationRule(mfc, sb)
-	_, err = createDestinationRule(bp.istioCli, sb.GetNamespace(), dr)
+	_, err = createDestinationRule(pt.Interface, sb.GetNamespace(), dr)
 	if err != nil {
 		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
 	}
@@ -165,7 +165,7 @@ func (bp *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.Servic
 			Namespace: goalSvc.GetNamespace(),
 		},
 	}
-	or, err := controllerutil.CreateOrUpdate(ctx, bp.cli, svc, func() error {
+	or, err := controllerutil.CreateOrUpdate(ctx, pt.Client, svc, func() error {
 		svc.ObjectMeta.Labels = goalSvc.Labels
 		svc.ObjectMeta.OwnerReferences = goalSvc.ObjectMeta.OwnerReferences
 		// Update the Spec fields WITHOUT clearing svc.Spec.ClusterIP
@@ -186,7 +186,7 @@ func (bp *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.Servic
 }
 
 // RemoveServiceBinding ...
-func (bp *Passthrough) RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
+func (pt *Passthrough) RemoveServiceBinding(ctx context.Context, sb *mmv1.ServiceBinding, mfc *mmv1.MeshFedConfig) error {
 	return nil
 }
 
