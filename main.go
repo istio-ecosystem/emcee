@@ -139,8 +139,8 @@ func main() {
 	}
 
 	sbr := controllers.ServiceBindingReconciler{
-		kclient,
-		istioClient,
+		Client:    kclient,
+		Interface: istioClient,
 		//Log:    ctrl.Log.WithName("controllers").WithName("ServiceBinding"),
 	}
 	if err = (&sbr).SetupWithManager(mgr); err != nil {
