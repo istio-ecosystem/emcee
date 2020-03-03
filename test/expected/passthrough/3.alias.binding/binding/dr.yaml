@@ -1,0 +1,29 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  creationTimestamp: "2020-03-03T02:29:06Z"
+  generation: 1
+  labels:
+    mesh: passthrough
+  name: binding-passthrough-helloworld-intermesh
+  namespace: default
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceBinding
+    name: helloworld
+    uid: c14db974-5cf6-11ea-a6e3-d25a297f6585
+  resourceVersion: "53789467"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/default/destinationrules/binding-passthrough-helloworld-intermesh
+  uid: c17390e1-5cf6-11ea-b294-aaa2fadece5a
+spec:
+  host: helloworldyall.default.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 5000
+      tls:
+        caCertificates: /etc/certs/root-cert.pem
+        clientCertificate: /etc/certs/cert-chain.pem
+        mode: MUTUAL
+        privateKey: /etc/certs/key.pem
+        sni: helloworld.default.svc.cluster.local

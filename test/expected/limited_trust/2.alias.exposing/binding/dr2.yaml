@@ -1,0 +1,32 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  creationTimestamp: "2020-03-03T02:40:49Z"
+  generation: 1
+  labels:
+    mesh: limited-trust
+  name: istio-limited-trust
+  namespace: limited-trust
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceBinding
+    name: helloworld
+    uid: 63fb741d-5cf8-11ea-bca4-be6eb315559a
+  resourceVersion: "53790726"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/limited-trust/destinationrules/istio-limited-trust
+  uid: 646dc781-5cf8-11ea-b294-aaa2fadece5a
+spec:
+  exportTo:
+  - '*'
+  host: istio-limited-trust-egress-443.limited-trust.svc.cluster.local
+  subsets:
+  - name: helloworld-intermesh
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+      portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: ISTIO_MUTUAL
+          sni: helloworld.default.svc.cluster.local

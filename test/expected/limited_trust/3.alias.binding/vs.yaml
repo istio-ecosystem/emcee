@@ -1,0 +1,33 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  creationTimestamp: "2020-03-03T02:54:11Z"
+  generation: 1
+  name: helloworld
+  namespace: limited-trust
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceExposition
+    name: helloworld
+    uid: 426c9b00-5cfa-11ea-b41a-ca67b6d79c4d
+  resourceVersion: "70139991"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/limited-trust/virtualservices/helloworld
+  uid: 42905411-5cfa-11ea-a10a-220468925d79
+spec:
+  gateways:
+  - helloworld
+  hosts:
+  - '*'
+  http:
+  - match:
+    - uri:
+        prefix: /default/helloworld/
+    name: route-helloworld
+    rewrite:
+      authority: holamundo.default.svc.cluster.local
+      uri: /
+    route:
+    - destination:
+        host: holamundo.default.svc.cluster.local
+        port:
+          number: 5000

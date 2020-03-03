@@ -1,0 +1,25 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: ServiceExposition
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"mm.ibm.istio.io/v1","kind":"ServiceExposition","metadata":{"annotations":{},"name":"helloworld","namespace":"default"},"spec":{"alias":"helloworld","mesh_fed_config_selector":{"fed-config":"passthrough"},"name":"holamundo","port":5000}}
+  creationTimestamp: "2020-03-03T02:27:57Z"
+  finalizers:
+  - mm.ibm.istio.io
+  generation: 3
+  name: helloworld
+  namespace: default
+  resourceVersion: "70136675"
+  selfLink: /apis/mm.ibm.istio.io/v1/namespaces/default/serviceexpositions/helloworld
+  uid: 9818c173-5cf6-11ea-b41a-ca67b6d79c4d
+spec:
+  alias: helloworld
+  endpoints:
+  - 169.62.214.226:15443
+  mesh_fed_config_selector:
+    fed-config: passthrough
+  name: holamundo
+  port: 5000
+status:
+  ready: true

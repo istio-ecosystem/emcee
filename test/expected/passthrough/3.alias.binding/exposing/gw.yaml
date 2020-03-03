@@ -1,0 +1,28 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  creationTimestamp: "2020-03-03T02:27:57Z"
+  generation: 1
+  labels:
+    mesh: passthrough
+  name: exposition-passthrough-helloworld-intermesh
+  namespace: default
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceExposition
+    name: helloworld
+    uid: 9818c173-5cf6-11ea-b41a-ca67b6d79c4d
+  resourceVersion: "70136671"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/default/gateways/exposition-passthrough-helloworld-intermesh
+  uid: 983b9db6-5cf6-11ea-8107-aa3f405a4c17
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - holamundo.default.svc.cluster.local
+    port:
+      name: holamundo
+      number: 15443
+      protocol: TLS
+    tls: {}

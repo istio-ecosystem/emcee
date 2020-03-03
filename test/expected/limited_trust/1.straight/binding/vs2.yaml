@@ -1,0 +1,31 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  creationTimestamp: "2020-03-03T02:40:49Z"
+  generation: 1
+  labels:
+    mesh: limited-trust
+    role: external
+  name: helloworld-intermesh
+  namespace: limited-trust
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceBinding
+    name: helloworld
+    uid: 63fb741d-5cf8-11ea-bca4-be6eb315559a
+  resourceVersion: "53790732"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/limited-trust/virtualservices/helloworld-intermesh
+  uid: 64789e42-5cf8-11ea-b294-aaa2fadece5a
+spec:
+  gateways:
+  - istio-limited-trust-helloworld-intermesh
+  hosts:
+  - helloworld.default.svc.cluster.local
+  tcp:
+  - match:
+    - port: 443
+    route:
+    - destination:
+        host: binding-limited-trust-helloworld-intermesh.limited-trust.svc.cluster.local
+        port:
+          number: 15443
