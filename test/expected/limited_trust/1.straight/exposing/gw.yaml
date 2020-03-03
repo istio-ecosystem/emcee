@@ -1,0 +1,30 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  creationTimestamp: "2020-03-03T02:40:33Z"
+  generation: 1
+  name: helloworld
+  namespace: limited-trust
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceExposition
+    name: helloworld
+    uid: 5ad94ed2-5cf8-11ea-a10a-220468925d79
+  resourceVersion: "70138344"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/limited-trust/gateways/helloworld
+  uid: 5af17d25-5cf8-11ea-a10a-220468925d79
+spec:
+  selector:
+    emcee: ingressgateway
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: https-meshfed-port
+      number: 15443
+      protocol: HTTPS
+    tls:
+      caCertificates: /etc/istio/mesh/certs/example.com.crt
+      mode: MUTUAL
+      privateKey: /etc/istio/mesh/certs/tls.key
+      serverCertificate: /etc/istio/mesh/certs/tls.crt

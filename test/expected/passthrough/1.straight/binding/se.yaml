@@ -1,0 +1,29 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  creationTimestamp: "2020-03-03T02:10:33Z"
+  generation: 1
+  labels:
+    mesh: passthrough
+  name: binding-passthrough-helloworld-intermesh
+  namespace: default
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceBinding
+    name: helloworld
+    uid: 29d66098-5cf4-11ea-a6e3-d25a297f6585
+  resourceVersion: "53787568"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/default/serviceentries/binding-passthrough-helloworld-intermesh
+  uid: 29ecf4a0-5cf4-11ea-b294-aaa2fadece5a
+spec:
+  endpoints:
+  - address: 169.62.214.226
+    ports:
+      http: 15443
+  hosts:
+  - helloworld.default.svc.cluster.local
+  ports:
+  - name: http
+    number: 5000
+    protocol: HTTP
+  resolution: STATIC

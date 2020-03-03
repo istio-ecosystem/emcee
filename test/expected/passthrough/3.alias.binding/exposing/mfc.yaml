@@ -1,0 +1,25 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: MeshFedConfig
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"mm.ibm.istio.io/v1","kind":"MeshFedConfig","metadata":{"annotations":{},"labels":{"fed-config":"passthrough","secret":"cluster2"},"name":"passthrough","namespace":"passthrough"},"spec":{"ingress_gateway_port":15443,"ingress_gateway_selector":{"istio":"ingressgateway"},"mode":"Passthrough","use_egress_gateway":false,"use_ingress_gateway":true}}
+  creationTimestamp: "2020-03-03T02:23:00Z"
+  finalizers:
+  - mm.ibm.istio.io
+  generation: 2
+  labels:
+    fed-config: passthrough
+    secret: cluster2
+  name: passthrough
+  namespace: passthrough
+  resourceVersion: "70136061"
+  selfLink: /apis/mm.ibm.istio.io/v1/namespaces/passthrough/meshfedconfigs/passthrough
+  uid: e71dd579-5cf5-11ea-8107-aa3f405a4c17
+spec:
+  ingress_gateway_port: 15443
+  ingress_gateway_selector:
+    istio: ingressgateway
+  mode: Passthrough
+  use_ingress_gateway: true
+status: {}

@@ -161,7 +161,7 @@ secrets_passthrough() {
 
     kubectl --context $CLUSTER delete secret -n istio-system cacerts 2> /dev/null || true
     kubectl --context $CLUSTER create secret generic cacerts -n istio-system --from-file=samples/certs/ca-cert.pem     --from-file=samples/certs/ca-key.pem --from-file=samples/certs/root-cert.pem --from-file=samples/certs/cert-chain.pem
-    istioctl --context $CLUSTER  manifest apply --set values.global.mtls.enabled=true,values.security.selfSigned=false
+    istioctl --context $CLUSTER  manifest apply --set values.global.mtls.enabled=true --set values.security.selfSigned=false
     kubectl --context $CLUSTER  delete secret istio.default
 
     kubectl --context $CLUSTER  create namespace passthrough  2> /dev/null || true
@@ -203,6 +203,8 @@ end_to_end(){
     echo $CURL_CMD
     echo =======================================================
     echo
+
+    read -p "Enter something, anything: " name
 }
 
 

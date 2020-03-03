@@ -1,0 +1,36 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  creationTimestamp: "2020-03-03T03:07:11Z"
+  generation: 1
+  labels:
+    mesh: limited-trust
+    role: local-to-egress
+  name: helloworldyall
+  namespace: default
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceBinding
+    name: helloworld
+    uid: 127c87b8-5cfc-11ea-a6e3-d25a297f6585
+  resourceVersion: "53793366"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/default/virtualservices/helloworldyall
+  uid: 1330c4a4-5cfc-11ea-b294-aaa2fadece5a
+spec:
+  exportTo:
+  - .
+  hosts:
+  - helloworldyall
+  http:
+  - match:
+    - port: 5000
+      uri:
+        prefix: /
+    rewrite:
+      uri: /default/helloworld/
+    route:
+    - destination:
+        host: istio-limited-trust-egress-443.limited-trust.svc.cluster.local
+        port:
+          number: 443
+        subset: helloworld-intermesh

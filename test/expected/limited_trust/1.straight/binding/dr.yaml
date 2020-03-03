@@ -1,0 +1,31 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  creationTimestamp: "2020-03-03T02:40:49Z"
+  generation: 1
+  labels:
+    mesh: limited-trust
+  name: binding-limited-trust-helloworld-intermesh
+  namespace: limited-trust
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: MeshFedConfig
+    name: limited-trust
+    uid: 635b261f-5cf8-11ea-a6e3-d25a297f6585
+  resourceVersion: "53790693"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/limited-trust/destinationrules/binding-limited-trust-helloworld-intermesh
+  uid: 643075d5-5cf8-11ea-b294-aaa2fadece5a
+spec:
+  exportTo:
+  - .
+  host: binding-limited-trust-helloworld-intermesh
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15443
+      tls:
+        caCertificates: /etc/istio/mesh/certs/example.com.crt
+        clientCertificate: /etc/istio/mesh/certs/tls.crt
+        mode: MUTUAL
+        privateKey: /etc/istio/mesh/certs/tls.key
+        sni: c2.example.com

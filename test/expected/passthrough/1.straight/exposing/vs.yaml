@@ -1,0 +1,34 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  creationTimestamp: "2020-03-03T01:42:49Z"
+  generation: 1
+  labels:
+    mesh: passthrough
+    role: external
+  name: intermesh-helloworld-default
+  namespace: default
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceExposition
+    name: helloworld
+    uid: 4a34278f-5cf0-11ea-b41a-ca67b6d79c4d
+  resourceVersion: "70131026"
+  selfLink: /apis/networking.istio.io/v1alpha3/namespaces/default/virtualservices/intermesh-helloworld-default
+  uid: 4a7b19fd-5cf0-11ea-8107-aa3f405a4c17
+spec:
+  gateways:
+  - exposition-passthrough-helloworld-intermesh
+  hosts:
+  - '*'
+  tls:
+  - match:
+    - port: 15443
+      sniHosts:
+      - helloworld.default.svc.cluster.local
+    route:
+    - destination:
+        host: helloworld.default.svc.cluster.local
+        port:
+          number: 5000
+        subset: notls

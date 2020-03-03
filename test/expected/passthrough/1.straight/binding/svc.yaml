@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2020-03-03T02:23:19Z"
+  labels:
+    mesh: helloworld
+    role: ingress-svc
+  name: helloworld
+  namespace: default
+  ownerReferences:
+  - apiVersion: mm.ibm.istio.io/v1
+    kind: ServiceBinding
+    name: helloworld
+    uid: f284f2a1-5cf5-11ea-bca4-be6eb315559a
+  resourceVersion: "53788898"
+  selfLink: /api/v1/namespaces/default/services/helloworld
+  uid: f2b7bbaa-5cf5-11ea-b294-aaa2fadece5a
+spec:
+  clusterIP: 172.21.149.154
+  ports:
+  - name: http
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

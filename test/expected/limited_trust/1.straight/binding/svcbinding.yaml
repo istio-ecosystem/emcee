@@ -1,0 +1,23 @@
+apiVersion: mm.ibm.istio.io/v1
+kind: ServiceBinding
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"mm.ibm.istio.io/v1","kind":"ServiceBinding","metadata":{"annotations":{},"name":"helloworld","namespace":"default"},"spec":{"endpoints":["169.62.214.229:15443"],"mesh_fed_config_selector":{"fed-config":"limited-trust"},"name":"helloworld","namespace":"default"}}
+  creationTimestamp: "2020-03-03T02:40:48Z"
+  finalizers:
+  - mm.ibm.istio.io
+  generation: 2
+  name: helloworld
+  namespace: default
+  resourceVersion: "53790690"
+  selfLink: /apis/mm.ibm.istio.io/v1/namespaces/default/servicebindings/helloworld
+  uid: 63fb741d-5cf8-11ea-bca4-be6eb315559a
+spec:
+  endpoints:
+  - 169.62.214.229:15443
+  mesh_fed_config_selector:
+    fed-config: limited-trust
+  name: helloworld
+  namespace: default
+status: {}
