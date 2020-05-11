@@ -24,7 +24,7 @@ Some multi-mesh relationships are fast and automatic.  Others involve off-line m
 
 Within a mesh, emcee “announces” exposed endpoints.  This is highly selective.
 
-![selective discoverability](discovery.png?raw=true "Selective discoverability")
+![selective discoverability](discoverability.png?raw=true "Selective discoverability")
 
 - Emcee knows that M2 exposes using terminating Ingress
 - Emcee knows that “reviews” is public
