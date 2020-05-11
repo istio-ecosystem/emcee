@@ -24,3 +24,5 @@ bin
 *~
 .project
 
+# Demo helpers
+commands.txt

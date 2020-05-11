@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	types "github.com/gogo/protobuf/types"
+
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 	"github.com/istio-ecosystem/emcee/style"
 	"istio.io/pkg/log"
@@ -148,12 +150,6 @@ func (pt *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.Servic
 		log.Warnf("Could not created the Service Entry %v: %v", serviceEntry.GetName(), err)
 	}
 
-	dr := passthroughBindingDestinationRule(mfc, sb)
-	_, err = createDestinationRule(pt.Interface, sb.GetNamespace(), dr)
-	if err != nil {
-		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
-	}
-
 	goalSvc := passthroughBindingService(sb, mfc)
 	if goalSvc == nil {
 		log.Infof("Could not generate Remote Cluster ingress Service")
@@ -176,6 +172,12 @@ func (pt *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.Servic
 	})
 	if err != nil {
 		return err
+	}
+
+	dr := passthroughBindingDestinationRule(mfc, sb)
+	_, err = createDestinationRule(pt.Interface, sb.GetNamespace(), dr)
+	if err != nil {
+		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
 	}
 
 	log.Infof("%s %s %s", or,
@@ -269,14 +271,15 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 			Gateway: istiov1alpha3.Gateway{
 				Servers: []*istiov1alpha3.Server{
 					&istiov1alpha3.Server{
-						Hosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace
+						// Hosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace //MB
+						Hosts: []string{"*.svc.cluster.local"},
 						Port: &istiov1alpha3.Port{
 							Number:   portToListen,
 							Protocol: "TLS",
-							Name:     se.Spec.Name,
+							Name:     "tls", //MB se.Spec.Name,
 						},
 						Tls: &istiov1alpha3.Server_TLSOptions{
-							Mode: istiov1alpha3.Server_TLSOptions_PASSTHROUGH,
+							Mode: istiov1alpha3.Server_TLSOptions_AUTO_PASSTHROUGH, //MB
 						},
 					},
 				},
@@ -398,13 +401,15 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 					},
 				},
 				Resolution: istiov1alpha3.ServiceEntry_STATIC,
-				Location:   istiov1alpha3.ServiceEntry_MESH_EXTERNAL,
+				Location:   istiov1alpha3.ServiceEntry_MESH_INTERNAL, //MB
 				Endpoints: []*istiov1alpha3.ServiceEntry_Endpoint{
 					&istiov1alpha3.ServiceEntry_Endpoint{
 						Address: epAddress,
 						Ports: map[string]uint32{
 							"http": uint32(epPort),
 						},
+						Locality: "us-north/007", // TODO use locality provided in discovery
+						Network: "NorthStar",
 					},
 				},
 			},
@@ -417,9 +422,9 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 		return nil
 	}
 
-	name := sb.Spec.Name
+	// name := sb.Spec.Name //MB
 	namespace := sb.Spec.Namespace
-	svcName := fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)                    // TODO intermeshNamespace
+	// svcName := fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace) //MB           // TODO intermeshNamespace
 	svcLocalName := fmt.Sprintf("%s.%s.svc.cluster.local", boundLocalName(sb), namespace) // TODO intermeshNamespace
 
 	return &v1alpha3.DestinationRule{
@@ -443,12 +448,32 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 							Port: &istiov1alpha3.PortSelector{
 								Number: boundLocalPort(sb),
 							},
+							//MB
+							ConnectionPool: &istiov1alpha3.ConnectionPoolSettings{
+								Http: &istiov1alpha3.ConnectionPoolSettings_HTTPSettings{
+									Http2MaxRequests:         1000,
+									MaxRequestsPerConnection: 10,
+								},
+								Tcp: &istiov1alpha3.ConnectionPoolSettings_TCPSettings{
+									MaxConnections: 100,
+								},
+							},
+							OutlierDetection: &istiov1alpha3.OutlierDetection{
+								BaseEjectionTime: &types.Duration{
+									Seconds: 20,
+								},
+								ConsecutiveErrors: 2,
+								Interval: &types.Duration{
+									Seconds: 5,
+								},
+								MaxEjectionPercent: 75,
+							},
 							Tls: &istiov1alpha3.TLSSettings{
-								Mode:              istiov1alpha3.TLSSettings_MUTUAL,
-								ClientCertificate: certificatesDir + "cert-chain.pem",
-								PrivateKey:        certificatesDir + "key.pem",
-								CaCertificates:    certificatesDir + "root-cert.pem",
-								Sni:               svcName, // intermeshNamespace ,
+								Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL, //MB
+								//ClientCertificate: certificatesDir + "cert-chain.pem",
+								//PrivateKey:        certificatesDir + "key.pem",
+								//CaCertificates:    certificatesDir + "root-cert.pem",
+								//Sni:               svcName, // intermeshNamespace ,
 							},
 						},
 					},

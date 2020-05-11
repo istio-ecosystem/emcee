@@ -62,14 +62,15 @@ fi
 
 preconditions() {
     # Verify I don't already have controllers who have grabbed the port
+    pkill emcee || true
     if [ "$(curl -s -o /dev/null -w "%{http_code}" localhost:8080)" == "404" ]; then
         echo There is already a listener on 8080
-        ps -ef | grep 8080 | grep manager
+        ps -ef | grep 8080 | grep emcee
         exit 4
     fi
     if [ "$(curl -s -o /dev/null -w "%{http_code}" localhost:8081)" == "404" ]; then
         echo There is already a listener on 8081
-        ps -ef | grep 8081 | grep manager
+        ps -ef | grep 8081 | grep emcee
         exit 4
     fi
 }
@@ -122,7 +123,7 @@ startup1() {
     # Start cluster1 controller
     LOG1=$TMPDIR/log1
     ERR1=$TMPDIR/err1
-    $BASEDIR/bin/manager --context $CLUSTER1 --metrics-addr ":8080" --grpc-server-addr ":50051" > $LOG1 2> $ERR1 &
+    $BASEDIR/bin/emcee --context $CLUSTER1 --metrics-addr ":8080" --grpc-server-addr ":50051" > $LOG1 2> $ERR1 &
     MANAGER_1_PID=$!
     echo MANAGER_1_PID is $MANAGER_1_PID
 }
@@ -131,13 +132,17 @@ startup2() {
     # Start cluster2 controller
     LOG2=$TMPDIR/log2
     ERR2=$TMPDIR/err2
-    $BASEDIR/bin/manager --context $CLUSTER2 --metrics-addr ":8081" --grpc-server-addr ":50052" > $LOG2 2> $ERR2 &
+    $BASEDIR/bin/emcee --context $CLUSTER2 --metrics-addr ":8081" --grpc-server-addr ":50052" > $LOG2 2> $ERR2 &
     MANAGER_2_PID=$!
     echo MANAGER_2_PID is $MANAGER_2_PID
 
 }
 
 shutdowns() {
+    echo "managers on"
+}
+
+killers() {
     if [ -n "$MANAGER_1_PID" ]; then
         kill $MANAGER_1_PID
         echo controller1 killed
@@ -155,10 +160,29 @@ shutdowns() {
     fi
 }
 
+
+
+
 secrets_passthrough() {
     CLUSTER_NAME=CLUSTER$1
     CLUSTER=${!CLUSTER_NAME}
 
+    kubectl --context $CLUSTER  create namespace passthrough  2> /dev/null || true
+}
+
+less_old_secrets_passthrough() {
+    CLUSTER_NAME=CLUSTER$1
+    CLUSTER=${!CLUSTER_NAME}
+
+    kubectl --context $CLUSTER delete secret -n istio-system cacerts 2> /dev/null || true
+    kubectl --context $CLUSTER create secret generic cacerts -n istio-system --from-file=samples/certs/ca-cert.pem     --from-file=samples/certs/ca-key.pem --from-file=samples/certs/root-cert.pem --from-file=samples/certs/cert-chain.pem
+
+    istioctl manifest apply \
+       -f /Users/mb/Repos/install/istio/install/kubernetes/operator/examples/multicluster/values-istio-multicluster-gateways.yaml
+
+    istioctl --context $CLUSTER  manifest apply --set values.global.mtls.enabled=true,values.security.selfSigned=false
+
+    kubectl --context $CLUSTER  delete secret istio.default
     kubectl --context $CLUSTER  create namespace passthrough  2> /dev/null || true
 }
 
@@ -257,7 +281,8 @@ main() {
     kubectl --context $CLUSTER2 wait --for=condition=available --timeout=60s deployment/helloworld-v1
 
     # Expose helloworld
-    kubectl --context $CLUSTER2 apply -f $BASEDIR/samples/$MODE/helloworld-expose.yaml
+    ####
+
 
     if [ "$MODE" = "limited-trust" ]; then
         # Wait for the exposure to be affected
@@ -334,9 +359,9 @@ main() {
 
     if [ "$AUTO" = "NO" ]; then
        # Bind helloworld to the actual dynamic exposed public IP
-       cat $BASEDIR/samples/$MODE/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -
+       BINDING="cat ./samples/$MODE/helloworld-binding.yaml | sed s/9.1.2.3:5000/$CLUSTER2_INGRESS:15443/ | kubectl --context $CLUSTER1 apply -f -"
     else
-       kubectl --context $CLUSTER3  apply -f $BASEDIR/samples/service_discovery.yaml
+       BINDING="kubectl --context $CLUSTER3  apply -f ./samples/service_discovery.yaml"
     fi
 
     # Wait for the exposure to be affected
@@ -345,9 +370,20 @@ main() {
         sleep 1
     done
 
+    echo "\\-------------------------------------------------//"
+    echo "\\-------------------------------------------------//"
+    echo "Expose:"
+    echo "   kubectl --context $CLUSTER2 apply -f ./samples/$MODE/helloworld-expose.yaml"
+    echo "Discover/Bind:"
+    echo "  " $BINDING
+    CURL_CMD="kubectl --context $CLUSTER1 exec -it cli1 -- curl helloworld:5000/hello"
+    echo "Test:"
+    echo "  " $CURL_CMD
+    echo "//-------------------------------------------------\\"
+    echo "//-------------------------------------------------\\"
+
     # Simple end to end test
     sleep 5
-    end_to_end  "helloworld"
 
     # To stop the test without using aliasing un comment the below
     exit 0

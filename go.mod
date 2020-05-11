@@ -9,7 +9,7 @@ require (
 	github.com/aspenmesh/istio-client-go v0.0.0-20191010215625-4de6e89009c4
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/go-logr/zapr v0.1.1 // indirect
-	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/hashicorp/go-multierror v1.0.0
