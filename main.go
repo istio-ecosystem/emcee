@@ -39,7 +39,8 @@ import (
 
 const (
 	grpcServerAddress = ":50051"
-	discoverySelector = "emcee:discovery"
+	discoveryLabel    = "emcee:discovery"
+	autoExposeLabel   = "emcee:auto_expose"
 )
 
 var (
@@ -56,20 +57,20 @@ func init() {
 
 func main() {
 	var (
-		metricsAddr              string
-		k8sContext               string
-		enableLeaderElection     bool
-		grpcServerAddr           string
-		grpcDiscoverySelector    string
-		grpcDiscoverySelectorKey string
-		grpcDiscoverySelectorVal string
+		metricsAddr           string
+		k8sContext            string
+		enableLeaderElection  bool
+		grpcServerAddr        string
+		grpcDiscoveryLabel    string
+		grpcDiscoveryLabelKey string
+		grpcDiscoveryLabelVal string
 	)
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&k8sContext, "context", "", "Kubernetes context")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&grpcServerAddr, "grpc-server-addr", grpcServerAddress, "The address the grpc server endpoint binds to.")
-	flag.StringVar(&grpcDiscoverySelector, "discovery-selector", discoverySelector, "The selector for grpc servers to connect to.")
+	flag.StringVar(&grpcDiscoveryLabel, "discovery-label", discoveryLabel, "The selector for grpc servers to connect to.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -81,10 +82,10 @@ func main() {
 	}
 	setupLog.Info("Loaded config", "context", k8sContext)
 
-	s := strings.Split(grpcDiscoverySelector, ":")
+	s := strings.Split(grpcDiscoveryLabel, ":")
 	if len(s) == 2 {
-		grpcDiscoverySelectorKey = s[0]
-		grpcDiscoverySelectorVal = s[1]
+		grpcDiscoveryLabelKey = s[0]
+		grpcDiscoveryLabelVal = s[1]
 	}
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -116,10 +117,10 @@ func main() {
 	}
 
 	svcr := controllers.ServiceReconciler{
-		Client:               kclient,
-		Interface:            istioClient,
-		DiscoverySelectorKey: grpcDiscoverySelectorKey,
-		DiscoverySelectorVal: grpcDiscoverySelectorVal,
+		Client:            kclient,
+		Interface:         istioClient,
+		DiscoveryLabelKey: grpcDiscoveryLabelKey,
+		DiscoveryLabelVal: grpcDiscoveryLabelVal,
 		//Log:    ctrl.Log.WithName("controllers").WithName("Service"),
 	}
 

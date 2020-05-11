@@ -31,8 +31,8 @@ import (
 type ServiceReconciler struct {
 	client.Client
 	istioclient.Interface
-	DiscoverySelectorKey string
-	DiscoverySelectorVal string
+	DiscoveryLabelKey string
+	DiscoveryLabelVal string
 }
 
 type DiscoveryServer struct {
@@ -57,12 +57,15 @@ func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	var svcAddr, svcPort string
 	var s DiscoveryServer
-	if svc.Spec.Selector[r.DiscoverySelectorKey] == r.DiscoverySelectorVal {
+	log.Warnf("LOOKING AT SEREVICE %v", svc)
+	if svc.ObjectMeta.Labels[r.DiscoveryLabelKey] == r.DiscoveryLabelVal {
+		log.Warnf("+++ LOOKING AT SEREVICE %v", svc)
 		if len(svc.Spec.ExternalIPs) > 0 {
 			svcAddr = svc.Spec.ExternalIPs[0]
 		} else {
 			svcAddr = svc.Spec.ClusterIP
 		}
+		log.Warnf("LOOKING AT SEREVICE Address %v", svcAddr)
 		svcPort = strconv.Itoa(int(svc.Spec.Ports[0].Port))
 		s = DiscoveryServer{
 			Name:      svc.GetNamespace() + "/" + svc.GetName(),
@@ -74,20 +77,22 @@ func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if strings.EqualFold(svcAddr, "9.9.9.9") {
 			s.Address = "127.0.0.1" + ":" + svcPort
 		}
-	}
 
-	if svc.ObjectMeta.DeletionTimestamp.IsZero() {
+		if svc.ObjectMeta.DeletionTimestamp.IsZero() {
+			if svcAddr != "" {
+				log.Warnf("LOOKING AT SEREVICE wrote UPDATE %v", s)
+				s.Operation = "U"
+				DiscoveryChanel <- s
+			}
+			return ctrl.Result{}, nil
+		}
+
+		// The object is being deleted
 		if svcAddr != "" {
-			s.Operation = "U"
+			log.Warnf("LOOKING AT SEREVICE wrote DELETE %v", s)
+			s.Operation = "D"
 			DiscoveryChanel <- s
 		}
-		return ctrl.Result{}, nil
-	}
-
-	// The object is being deleted
-	if svcAddr != "" {
-		s.Operation = "D"
-		DiscoveryChanel <- s
 	}
 	return ctrl.Result{}, nil
 
