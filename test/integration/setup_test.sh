@@ -250,8 +250,9 @@ main() {
     startup2
 
     # Deploy experiment
-    kubectl --context $CLUSTER2 apply -f $BASEDIR/test/integration/common/helloworld.yaml
-    kubectl --context $CLUSTER1 apply -f $BASEDIR/test/integration/common/helloworld.yaml
+    # auto expose
+    #kubectl --context $CLUSTER2 apply -f $BASEDIR/test/integration/common/helloworld.yaml
+    #kubectl --context $CLUSTER1 apply -f $BASEDIR/test/integration/common/helloworld.yaml
 
     # Verify the controller is still running
     if ps -p $MANAGER_2_PID > /dev/null ; then
@@ -365,13 +366,16 @@ main() {
     fi
 
     # Wait for the exposure to be affected
-    until kubectl --context $CLUSTER1 get service helloworld ; do
-        echo Waiting for controller to create helloworld service
-        sleep 1
-    done
+    # auto expose
+    #until kubectl --context $CLUSTER1 get service helloworld ; do
+    #    echo Waiting for controller to create helloworld service
+    #    sleep 1
+    #done
 
     echo "\\-------------------------------------------------//"
     echo "\\-------------------------------------------------//"
+    echo "Create auto exposed service"
+    echo "   kubectl --context $CLUSTER2 apply -f ./test/integration/common/helloworld.yaml"
     echo "Expose:"
     echo "   kubectl --context $CLUSTER2 apply -f ./samples/$MODE/helloworld-expose.yaml"
     echo "Discover/Bind:"

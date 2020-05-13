@@ -279,7 +279,7 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 							Name:     "tls", //MB se.Spec.Name,
 						},
 						Tls: &istiov1alpha3.Server_TLSOptions{
-							Mode: istiov1alpha3.Server_TLSOptions_AUTO_PASSTHROUGH, //MB
+							Mode: istiov1alpha3.Server_TLSOptions_AUTO_PASSTHROUGH, // MB _AUTO_PASSTHROUGH, //MB
 						},
 					},
 				},
@@ -401,7 +401,7 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 					},
 				},
 				Resolution: istiov1alpha3.ServiceEntry_STATIC,
-				Location:   istiov1alpha3.ServiceEntry_MESH_INTERNAL, //MB
+				Location:   istiov1alpha3.ServiceEntry_MESH_EXTERNAL, //MB  _INTERNAL, //MB
 				Endpoints: []*istiov1alpha3.ServiceEntry_Endpoint{
 					&istiov1alpha3.ServiceEntry_Endpoint{
 						Address: epAddress,
@@ -409,7 +409,7 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 							"http": uint32(epPort),
 						},
 						Locality: "us-north/007", // TODO use locality provided in discovery
-						Network: "NorthStar",
+						Network:  "NorthStar",
 					},
 				},
 			},
@@ -422,9 +422,9 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 		return nil
 	}
 
-	// name := sb.Spec.Name //MB
+	//name := sb.Spec.Name //MB
 	namespace := sb.Spec.Namespace
-	// svcName := fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace) //MB           // TODO intermeshNamespace
+	//svcName := fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)                    //MB           // TODO intermeshNamespace
 	svcLocalName := fmt.Sprintf("%s.%s.svc.cluster.local", boundLocalName(sb), namespace) // TODO intermeshNamespace
 
 	return &v1alpha3.DestinationRule{
@@ -470,10 +470,10 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 							},
 							Tls: &istiov1alpha3.TLSSettings{
 								Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL, //MB
-								//ClientCertificate: certificatesDir + "cert-chain.pem",
-								//PrivateKey:        certificatesDir + "key.pem",
-								//CaCertificates:    certificatesDir + "root-cert.pem",
-								//Sni:               svcName, // intermeshNamespace ,
+								// ClientCertificate: certificatesDir + "cert-chain.pem",
+								// PrivateKey:        certificatesDir + "key.pem",
+								// CaCertificates:    certificatesDir + "root-cert.pem",
+								//MB  Sni: svcName, // intermeshNamespace ,
 							},
 						},
 					},
