@@ -38,8 +38,9 @@ import (
 )
 
 const (
-	grpcServerAddress = ":50051"
-	discoverySelector = "emcee:discovery"
+	grpcServerAddress    = ":50051"
+	discoveryLabel       = "emcee:discovery"
+	emceeAutoExposeLabel = "emcee.io/expose"
 )
 
 var (
@@ -56,20 +57,24 @@ func init() {
 
 func main() {
 	var (
-		metricsAddr              string
-		k8sContext               string
-		enableLeaderElection     bool
-		grpcServerAddr           string
-		grpcDiscoverySelector    string
-		grpcDiscoverySelectorKey string
-		grpcDiscoverySelectorVal string
+		metricsAddr           string
+		k8sContext            string
+		enableLeaderElection  bool
+		grpcServerAddr        string
+		grpcDiscoveryLabel    string
+		grpcDiscoveryLabelKey string
+		grpcDiscoveryLabelVal string
+		autoExposeLabel       string
+		autoExposeLabelKey    string
+		autoExposeLabelVal    string
 	)
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&k8sContext, "context", "", "Kubernetes context")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&grpcServerAddr, "grpc-server-addr", grpcServerAddress, "The address the grpc server endpoint binds to.")
-	flag.StringVar(&grpcDiscoverySelector, "discovery-selector", discoverySelector, "The selector for grpc servers to connect to.")
+	flag.StringVar(&grpcDiscoveryLabel, "discovery-label", discoveryLabel, "The label for grpc servers to connect to.")
+	flag.StringVar(&autoExposeLabel, "auto-expose-label", emceeAutoExposeLabel, "The label for grpc servers to connect to.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -81,11 +86,14 @@ func main() {
 	}
 	setupLog.Info("Loaded config", "context", k8sContext)
 
-	s := strings.Split(grpcDiscoverySelector, ":")
+	s := strings.Split(grpcDiscoveryLabel, ":")
 	if len(s) == 2 {
-		grpcDiscoverySelectorKey = s[0]
-		grpcDiscoverySelectorVal = s[1]
+		grpcDiscoveryLabelKey = s[0]
+		grpcDiscoveryLabelVal = s[1]
 	}
+
+	autoExposeLabelKey = emceeAutoExposeLabel
+	autoExposeLabelVal = ""
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
@@ -115,19 +123,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	svcr := controllers.ServiceReconciler{
-		Client:               kclient,
-		Interface:            istioClient,
-		DiscoverySelectorKey: grpcDiscoverySelectorKey,
-		DiscoverySelectorVal: grpcDiscoverySelectorVal,
-		//Log:    ctrl.Log.WithName("controllers").WithName("Service"),
-	}
-
-	if err = (&svcr).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Service")
-		os.Exit(1)
-	}
-
 	ser := controllers.ServiceExpositionReconciler{
 		Client:    kclient,
 		Interface: istioClient,
@@ -147,6 +142,23 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
 		os.Exit(1)
 	}
+
+	svcr := controllers.ServiceReconciler{
+		Client:             kclient,
+		Interface:          istioClient,
+		DiscoveryLabelKey:  grpcDiscoveryLabelKey,
+		DiscoveryLabelVal:  grpcDiscoveryLabelVal,
+		AutoExposeLabelKey: autoExposeLabelKey,
+		AutoExposeLabelVal: autoExposeLabelVal,
+		SEReconciler:       &ser,
+		//Log:    ctrl.Log.WithName("controllers").WithName("Service"),
+	}
+
+	if err = (&svcr).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Service")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	ctx := context.Background()

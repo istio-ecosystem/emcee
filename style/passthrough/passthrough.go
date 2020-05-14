@@ -21,8 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	types "github.com/gogo/protobuf/types"
-
+	"github.com/gogo/protobuf/types"
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 	"github.com/istio-ecosystem/emcee/style"
 	"istio.io/pkg/log"
@@ -106,22 +105,10 @@ func (pt *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.Servi
 	}
 	se.Spec.Endpoints = eps
 
-	dr := passthroughExposingDestinationRule(mfc, se)
-	_, err = createDestinationRule(pt.Interface, se.GetNamespace(), dr)
-	if err != nil {
-		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
-	}
-
 	gw, _ := passthroughExposingGateway(mfc, se)
 	_, err = createGateway(pt.Interface, se.GetNamespace(), gw)
 	if err != nil {
 		log.Warnf("Could not created the Gateway %v: %v", gw.GetName(), err)
-	}
-
-	vs, _ := passthroughExposingVirtualService(mfc, se)
-	_, err = createVirtualService(pt.Interface, se.GetNamespace(), vs)
-	if err != nil {
-		log.Warnf("Could not created the Virtual Service %v: %v", vs.GetName(), err)
 	}
 
 	se.Status.Ready = true
@@ -203,50 +190,6 @@ func (pt *Passthrough) RemoveServiceBinding(ctx context.Context, sb *mmv1.Servic
 //	return mfc.Spec.IngressGatewayPort
 //}
 
-func passthroughExposingDestinationRule(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) *v1alpha3.DestinationRule {
-	if !mfc.Spec.UseIngressGateway {
-		return nil
-	}
-
-	name := se.Spec.Name
-	namespace := se.GetNamespace()
-	svcName := fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace)
-
-	return &v1alpha3.DestinationRule{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "DestinationRule",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceExposeName(mfc.GetName(), se.GetName()),
-			Namespace: namespace,
-			Labels: map[string]string{
-				"mesh": mfc.GetName(),
-			},
-			OwnerReferences: ownerReference(se.APIVersion, se.Kind, se.ObjectMeta),
-		},
-		Spec: v1alpha3.DestinationRuleSpec{
-			DestinationRule: istiov1alpha3.DestinationRule{
-				Host: svcName,
-				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
-					Tls: &istiov1alpha3.TLSSettings{
-						Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
-					},
-				},
-				Subsets: []*istiov1alpha3.Subset{
-					&istiov1alpha3.Subset{
-						Name: "notls",
-						TrafficPolicy: &istiov1alpha3.TrafficPolicy{
-							Tls: &istiov1alpha3.TLSSettings{
-								Mode: istiov1alpha3.TLSSettings_DISABLE,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) (*v1alpha3.Gateway, error) {
 	if !mfc.Spec.UseIngressGateway {
 		return nil, fmt.Errorf("passthrough requires Ingress Gateway")
@@ -284,58 +227,6 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 					},
 				},
 				Selector: mfc.Spec.IngressGatewaySelector, // TODO: default to: map[string]string {"istio": "ingressgateway}",
-			},
-		},
-	}, nil
-}
-
-func passthroughExposingVirtualService(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposition) (*v1alpha3.VirtualService, error) {
-	if !mfc.Spec.UseIngressGateway {
-		return nil, fmt.Errorf("passthrough requires Ingress Gateway")
-	}
-	portToListen := getPortfromIPPort(se.Spec.Endpoints[0])
-	if portToListen == 0 {
-		return nil, fmt.Errorf("passthrough requires a port number for Ingress Gateway")
-	}
-
-	return &v1alpha3.VirtualService{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "VirtualService",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("intermesh-%s-%s", se.Spec.Name, se.GetNamespace()),
-			Namespace: se.GetNamespace(),
-			Labels: map[string]string{
-				"mesh": mfc.GetName(),
-				"role": "external",
-			},
-			OwnerReferences: ownerReference(se.APIVersion, se.Kind, se.ObjectMeta),
-		},
-		Spec: v1alpha3.VirtualServiceSpec{
-			VirtualService: istiov1alpha3.VirtualService{
-				Hosts:    []string{"*"}, // fmt.Sprintf("%s.%s.svc.cluster.local", exposedLocalName(se), se.GetNamespace())}, // TODO Why need the "*"?
-				Gateways: []string{serviceExposeName(mfc.GetName(), se.GetName())},
-				Tls: []*istiov1alpha3.TLSRoute{
-					{
-						Match: []*istiov1alpha3.TLSMatchAttributes{
-							&istiov1alpha3.TLSMatchAttributes{
-								Port:     portToListen,
-								SniHosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", exposedLocalName(se), se.GetNamespace())},
-							},
-						},
-						Route: []*istiov1alpha3.RouteDestination{
-							{
-								Destination: &istiov1alpha3.Destination{
-									Host: fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace()),
-									Port: &istiov1alpha3.PortSelector{
-										Number: se.Spec.Port,
-									},
-									Subset: "notls",
-								},
-							},
-						},
-					},
-				},
 			},
 		},
 	}, nil
@@ -409,7 +300,7 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 							"http": uint32(epPort),
 						},
 						Locality: "us-north/007", // TODO use locality provided in discovery
-						Network: "NorthStar",
+						Network:  "NorthStar",
 					},
 				},
 			},
@@ -422,9 +313,7 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 		return nil
 	}
 
-	// name := sb.Spec.Name //MB
 	namespace := sb.Spec.Namespace
-	// svcName := fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace) //MB           // TODO intermeshNamespace
 	svcLocalName := fmt.Sprintf("%s.%s.svc.cluster.local", boundLocalName(sb), namespace) // TODO intermeshNamespace
 
 	return &v1alpha3.DestinationRule{
@@ -470,10 +359,6 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 							},
 							Tls: &istiov1alpha3.TLSSettings{
 								Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL, //MB
-								//ClientCertificate: certificatesDir + "cert-chain.pem",
-								//PrivateKey:        certificatesDir + "key.pem",
-								//CaCertificates:    certificatesDir + "root-cert.pem",
-								//Sni:               svcName, // intermeshNamespace ,
 							},
 						},
 					},
