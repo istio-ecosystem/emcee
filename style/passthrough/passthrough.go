@@ -50,7 +50,7 @@ var (
 
 const (
 	//	defaultPrefix      = ".svc.cluster.local"
-	defaultIngressPort = 15443 // the port used at the Ingress
+	defaultIngressPort = 443 // the port used at the Ingress // TODO use CONSTANT
 )
 
 // NewPassthroughMeshFedConfig creates a "Passthrough" style implementation for handling MeshFedConfig
@@ -226,7 +226,7 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 			Gateway: istiov1alpha3.Gateway{
 				Servers: []*istiov1alpha3.Server{
 					&istiov1alpha3.Server{
-						Hosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace //MB
+						Hosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace
 						// Hosts: []string{"*.svc.cluster.local"},
 						Port: &istiov1alpha3.Port{
 							Number:   portToListen,
@@ -234,7 +234,7 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 							Name:     se.Spec.Name,
 						},
 						Tls: &istiov1alpha3.Server_TLSOptions{
-							Mode: istiov1alpha3.Server_TLSOptions_PASSTHROUGH, //MB
+							Mode: istiov1alpha3.Server_TLSOptions_PASSTHROUGH, // Auto Passthrough does not allow aliases hence Passthrough
 						},
 					},
 				},
@@ -322,7 +322,9 @@ func passthroughExposingDestinationRule(mfc *mmv1.MeshFedConfig, se *mmv1.Servic
 				Host: svcName,
 				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
 					Tls: &istiov1alpha3.TLSSettings{
-						Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
+						// TODO: subset does not seem to take aeffect
+						//       this is a temporary fix
+						Mode: istiov1alpha3.TLSSettings_DISABLE, // istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
 					},
 				},
 				Subsets: []*istiov1alpha3.Subset{
@@ -400,7 +402,7 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 					},
 				},
 				Resolution: istiov1alpha3.ServiceEntry_STATIC,
-				Location:   istiov1alpha3.ServiceEntry_MESH_INTERNAL, //MB
+				Location:   istiov1alpha3.ServiceEntry_MESH_INTERNAL,
 				Endpoints: []*istiov1alpha3.ServiceEntry_Endpoint{
 					&istiov1alpha3.ServiceEntry_Endpoint{
 						Address: epAddress,
@@ -447,7 +449,6 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 							Port: &istiov1alpha3.PortSelector{
 								Number: boundLocalPort(sb),
 							},
-							//MB
 							ConnectionPool: &istiov1alpha3.ConnectionPoolSettings{
 								Http: &istiov1alpha3.ConnectionPoolSettings_HTTPSettings{
 									Http2MaxRequests:         1000,
@@ -468,7 +469,7 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 								MaxEjectionPercent: 75,
 							},
 							Tls: &istiov1alpha3.TLSSettings{
-								Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL, //MB
+								Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
 								Sni:  svcName,
 							},
 						},

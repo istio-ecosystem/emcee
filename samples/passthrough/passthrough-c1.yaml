@@ -12,4 +12,4 @@ spec:
   use_ingress_gateway: true
   ingress_gateway_selector:
     istio: ingressgateway
-  ingress_gateway_port: 15443
+  ingress_gateway_port: 443
