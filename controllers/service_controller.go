@@ -35,11 +35,11 @@ import (
 type ServiceReconciler struct {
 	client.Client
 	istioclient.Interface
-	DiscoveryLabelKey  string
-	DiscoveryLabelVal  string
-	AutoExposeLabelKey string
-	AutoExposeLabelVal string
-	SEReconciler       *ServiceExpositionReconciler
+	DiscoveryLabelKey    string
+	DiscoveryLabelVal    string
+	AutoExposeLabelKey   string
+	AutoExposeAsLabelKey string
+	SEReconciler         *ServiceExpositionReconciler
 }
 
 type DiscoveryServer struct {
@@ -58,6 +58,17 @@ const (
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=mm.ibm.istio.io,resources=services/status,verbs=get;update;patch
 
+func ownerReference(apiVersion, kind string, owner metav1.ObjectMeta) []metav1.OwnerReference {
+	return []metav1.OwnerReference{
+		{
+			APIVersion: apiVersion,
+			Kind:       kind,
+			Name:       owner.GetName(),
+			UID:        owner.GetUID(),
+		},
+	}
+}
+
 // Functions for auto expose
 
 func newServiceExposure(svc *k8sapi.Service, name, alias string) *mmv1.ServiceExposition {
@@ -66,14 +77,15 @@ func newServiceExposure(svc *k8sapi.Service, name, alias string) *mmv1.ServiceEx
 			Kind: "ServiceBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
+			Name:            name,
+			Namespace:       "default",
+			OwnerReferences: ownerReference(svc.APIVersion, svc.Kind, svc.ObjectMeta),
 		},
 		Spec: mmv1.ServiceExpositionSpec{
 			Name: svc.Name,
 			Port: uint32(svc.Spec.Ports[0].Port), // TODO one port only?
 			MeshFedConfigSelector: map[string]string{ // TODO
-				"fed-config": "passthrough",
+				fedConfig: defaultMeshFedConfig,
 			},
 		},
 	}
@@ -149,13 +161,18 @@ func (r *ServiceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			DiscoveryChanel <- s
 		}
 	} else {
-		if alias, ok := svc.ObjectMeta.Labels[r.AutoExposeLabelKey]; ok {
-			log.Warnf("LOOKING AT SEREVICE being Auto Exposed <%v-%v-%v-%v>", svc,
-				r.AutoExposeLabelKey, r.AutoExposeLabelVal, svc.ObjectMeta.Labels[r.AutoExposeLabelKey])
-			if err := createServiceExposure(r.SEReconciler, &svc, alias); err != nil {
-				log.Warnf("Could not auto exposed: %v", svc, alias)
+		if svc.ObjectMeta.DeletionTimestamp.IsZero() {
+			if alias, ok := svc.ObjectMeta.Labels[r.AutoExposeAsLabelKey]; ok {
+				if err := createServiceExposure(r.SEReconciler, &svc, alias); err != nil {
+					log.Warnf("Could not auto expose: %v alias: %v", svc, alias)
+				}
+			} else if val, ok := svc.ObjectMeta.Labels[r.AutoExposeLabelKey]; ok && val == "true" {
+				if err := createServiceExposure(r.SEReconciler, &svc, ""); err != nil {
+					log.Warnf("Could not auto expose: %v", svc)
+				}
 			}
 		}
+		// deleted services are taken care of at the begining of this function
 	}
 	return ctrl.Result{}, nil
 

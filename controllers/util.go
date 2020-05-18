@@ -32,7 +32,7 @@ import (
 
 const (
 	// DefaultGatewayPort is the port to use if port is not explicitly specified
-	DefaultGatewayPort = 15443
+	DefaultGatewayPort = 443
 	// ModeBoundary is for boundary protection style
 	ModeBoundary = "BOUNDARY"
 	// ModePassthrough is for the passthrough style

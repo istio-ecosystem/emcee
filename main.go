@@ -38,9 +38,10 @@ import (
 )
 
 const (
-	grpcServerAddress    = ":50051"
-	discoveryLabel       = "emcee:discovery"
-	emceeAutoExposeLabel = "emcee.io/expose"
+	grpcServerAddress      = ":50051"
+	discoveryLabel         = "emcee:discovery"
+	emceeAutoExposeLabel   = "emcee.io/expose"
+	emceeAutoExposeAsLabel = "emcee.io/exposeAs"
 )
 
 var (
@@ -66,7 +67,8 @@ func main() {
 		grpcDiscoveryLabelVal string
 		autoExposeLabel       string
 		autoExposeLabelKey    string
-		autoExposeLabelVal    string
+		autoExposeAsLabel     string
+		autoExposeAsLabelKey  string
 	)
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&k8sContext, "context", "", "Kubernetes context")
@@ -74,7 +76,8 @@ func main() {
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&grpcServerAddr, "grpc-server-addr", grpcServerAddress, "The address the grpc server endpoint binds to.")
 	flag.StringVar(&grpcDiscoveryLabel, "discovery-label", discoveryLabel, "The label for grpc servers to connect to.")
-	flag.StringVar(&autoExposeLabel, "auto-expose-label", emceeAutoExposeLabel, "The label for grpc servers to connect to.")
+	flag.StringVar(&autoExposeLabel, "auto-expose-label", emceeAutoExposeLabel, "The label for auto exposing a service.")
+	flag.StringVar(&autoExposeAsLabel, "exposeAs-label", emceeAutoExposeAsLabel, "The label for auto exposing a service as a different service.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.Logger(true))
@@ -93,7 +96,7 @@ func main() {
 	}
 
 	autoExposeLabelKey = emceeAutoExposeLabel
-	autoExposeLabelVal = ""
+	autoExposeAsLabelKey = emceeAutoExposeAsLabel
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
@@ -144,13 +147,13 @@ func main() {
 	}
 
 	svcr := controllers.ServiceReconciler{
-		Client:             kclient,
-		Interface:          istioClient,
-		DiscoveryLabelKey:  grpcDiscoveryLabelKey,
-		DiscoveryLabelVal:  grpcDiscoveryLabelVal,
-		AutoExposeLabelKey: autoExposeLabelKey,
-		AutoExposeLabelVal: autoExposeLabelVal,
-		SEReconciler:       &ser,
+		Client:               kclient,
+		Interface:            istioClient,
+		DiscoveryLabelKey:    grpcDiscoveryLabelKey,
+		DiscoveryLabelVal:    grpcDiscoveryLabelVal,
+		AutoExposeLabelKey:   autoExposeLabelKey,
+		AutoExposeAsLabelKey: autoExposeAsLabelKey,
+		SEReconciler:         &ser,
 		//Log:    ctrl.Log.WithName("controllers").WithName("Service"),
 	}
 
