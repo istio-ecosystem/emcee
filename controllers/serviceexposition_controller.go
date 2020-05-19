@@ -74,6 +74,12 @@ func (r *ServiceExpositionReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 			exposition.ObjectMeta.Finalizers = append(exposition.ObjectMeta.Finalizers, myFinalizerName)
 			if err := r.Update(context.Background(), &exposition); err != nil {
 				return ctrl.Result{}, err
+			} else {
+				err = styleReconciler.EffectServiceExposure(ctx, &exposition, &mfc)
+				if err == nil {
+					UpdateChannel <- x
+					x++
+				}
 			}
 		} else {
 			err = styleReconciler.EffectServiceExposure(ctx, &exposition, &mfc)

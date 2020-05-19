@@ -4,7 +4,8 @@ metadata:
   name: helloworld
   labels:
     app: helloworld
-    emcee.io/exposeAs: "holamundo"
+    emcee.io/expose: "true"
+    #emcee.io/exposeAs: "holamundo"
 spec:
   ports:
   - port: 5000

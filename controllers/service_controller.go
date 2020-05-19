@@ -74,7 +74,7 @@ func ownerReference(apiVersion, kind string, owner metav1.ObjectMeta) []metav1.O
 func newServiceExposure(svc *k8sapi.Service, name, alias string) *mmv1.ServiceExposition {
 	se := mmv1.ServiceExposition{
 		TypeMeta: metav1.TypeMeta{
-			Kind: "ServiceBinding",
+			Kind: "ServiceExposition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
@@ -109,8 +109,19 @@ func newServiceExposure(svc *k8sapi.Service, name, alias string) *mmv1.ServiceEx
 
 func createServiceExposure(ser *ServiceExpositionReconciler, svc *k8sapi.Service, alias string) error {
 	name := svc.GetName() + "-auto-exposed"
-	nv := newServiceExposure(svc, name, alias)
-	_, err := controllerutil.CreateOrUpdate(context.Background(), ser.Client, nv, func() error { return nil })
+	goalNv := newServiceExposure(svc, name, alias)
+	nv := &mmv1.ServiceExposition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      goalNv.GetName(),
+			Namespace: goalNv.GetNamespace(),
+		},
+	}
+	_, err := controllerutil.CreateOrUpdate(context.Background(), ser.Client, nv, func() error {
+		nv.ObjectMeta.Labels = goalNv.Labels
+		nv.ObjectMeta.OwnerReferences = goalNv.ObjectMeta.OwnerReferences
+		nv.Spec = goalNv.Spec
+		return nil
+	})
 	if err != nil {
 		return err
 	}
