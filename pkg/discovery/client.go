@@ -49,14 +49,21 @@ const (
 )
 
 type discoveryClient struct {
-	name     string
-	address  string
-	waitChan chan struct{}
-	cancel   context.CancelFunc
-	status   int
+	name               string
+	address            string
+	waitChan           chan struct{}
+	cancel             context.CancelFunc
+	status             int
+	discoveredServices map[string]int
 }
 
 var discoveryServices map[string]*discoveryClient
+
+const (
+	NAMESPACE = "default" // TODO  generalize
+	CLEAR     = 0
+	CREATED   = 1
+)
 
 func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService, name string) *mmv1.ServiceBinding {
 	return &mmv1.ServiceBinding{
@@ -65,11 +72,11 @@ func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService, name strin
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      in.Name,
-			Namespace: "default",
+			Namespace: NAMESPACE,
 		},
 		Spec: mmv1.ServiceBindingSpec{
 			Name:                  in.Name,
-			Namespace:             "default",
+			Namespace:             NAMESPACE,
 			Port:                  in.Port,
 			MeshFedConfigSelector: in.MeshFedConfigSelector,
 			Endpoints:             in.Endpoints,
@@ -78,14 +85,45 @@ func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService, name strin
 	}
 }
 
-func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.ExposedServicesMessages) error {
+func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.ExposedServicesMessages,
+	disc *discoveryClient) error {
+	for k := range disc.discoveredServices {
+		disc.discoveredServices[k] = CLEAR
+	}
+
 	for _, v := range in.GetExposedServices() {
-		nv := newServiceBinding(v, in.GetName())
-		_, err := controllerutil.CreateOrUpdate(context.Background(), sbr.Client, nv, func() error { return nil })
+		goalNv := newServiceBinding(v, in.GetName())
+		nv := &mmv1.ServiceBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      goalNv.GetName(),
+				Namespace: goalNv.GetNamespace(),
+			},
+		}
+		_, err := controllerutil.CreateOrUpdate(context.Background(), sbr.Client, nv, func() error {
+			nv.ObjectMeta.Labels = goalNv.Labels
+			nv.ObjectMeta.OwnerReferences = goalNv.ObjectMeta.OwnerReferences
+			nv.Spec = goalNv.Spec
+			return nil
+		})
 		if err != nil {
 			return err
 		}
+		disc.discoveredServices[v.GetName()] = CREATED
+	}
 
+	for k := range disc.discoveredServices {
+		if disc.discoveredServices[k] == CLEAR {
+			var binding mmv1.ServiceBinding
+			nsn := types.NamespacedName{
+				Name:      k,
+				Namespace: NAMESPACE,
+			}
+			if err := sbr.Client.Get(context.Background(), nsn, &binding); err == nil {
+				sbr.Client.Delete(context.Background(), &binding)
+			} else {
+				log.Warnf("error in cleanup of deleted discovered service: %v", err)
+			}
+		}
 	}
 	return nil
 }
@@ -94,6 +132,7 @@ func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.Exp
 func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconciler,
 	svcr *controllers.ServiceReconciler, discoveryChannel chan controllers.DiscoveryServer) {
 	discoveryServices = make(map[string]*discoveryClient)
+
 	monitor := time.NewTicker(connMonitorSeconds * time.Millisecond)
 	for {
 		select {
@@ -113,6 +152,7 @@ func ClientStarter(ctx context.Context, sbr *controllers.ServiceBindingReconcile
 						status: clientSched,
 					}
 					discoveryServices[svc.Name] = &dc
+					discoveryServices[svc.Name].discoveredServices = make(map[string]int)
 					go client(ctx, sbr, &dc)
 				} else {
 					// This is in response to an update to service
@@ -240,7 +280,7 @@ func client(ctx context.Context, sbr *controllers.ServiceBindingReconciler, disc
 				return
 			}
 			log.Infof("Received ESDA Discovery message: <%v>", in)
-			createServiceBindings(sbr, in)
+			createServiceBindings(sbr, in, disc)
 			log.Infof("Processd ESDA Discovery message")
 		}
 	}()
