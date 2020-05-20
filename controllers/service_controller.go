@@ -78,7 +78,7 @@ func newServiceExposure(svc *k8sapi.Service, name, alias string) *mmv1.ServiceEx
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            name,
-			Namespace:       "default",
+			Namespace:       svc.GetNamespace(),
 			OwnerReferences: ownerReference(svc.APIVersion, svc.Kind, svc.ObjectMeta),
 		},
 		Spec: mmv1.ServiceExpositionSpec{
