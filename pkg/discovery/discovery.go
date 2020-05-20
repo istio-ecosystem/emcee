@@ -84,6 +84,12 @@ func getAllExposedService(z, in *pb.ExposedServicesMessages) {
 			name := v.Spec.Name
 			if v.Spec.Alias != "" {
 				name = v.Spec.Alias
+			} else {
+				if v.ObjectMeta.Namespace != "default" {
+					name = v.ObjectMeta.Namespace + "/" + v.Spec.Name
+				} else {
+					name = "default/" + v.Spec.Name
+				}
 			}
 			entry := pb.ExposedServicesMessages_ExposedService{
 				Name:                  name,

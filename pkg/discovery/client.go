@@ -60,27 +60,37 @@ type discoveryClient struct {
 var discoveryServices map[string]*discoveryClient
 
 const (
-	NAMESPACE = "default" // TODO  generalize
-	CLEAR     = 0
-	CREATED   = 1
+	DEFAULT_NAMESPACE = "default" // TODO  generalize
+	CLEAR             = 0
+	CREATED           = 1
 )
 
-func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService, name string) *mmv1.ServiceBinding {
+func newServiceBinding(in *pb.ExposedServicesMessages_ExposedService) *mmv1.ServiceBinding {
+	var newName, newNamespace string
+	s := strings.Split(in.Name, "/")
+	if len(s) == 2 {
+		newNamespace = s[0]
+		newName = s[1]
+	} else {
+		newNamespace = DEFAULT_NAMESPACE
+		newName = s[0]
+	}
+
 	return &mmv1.ServiceBinding{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ServiceBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      in.Name,
-			Namespace: NAMESPACE,
+			Name:      newName,
+			Namespace: newNamespace,
 		},
 		Spec: mmv1.ServiceBindingSpec{
-			Name:                  in.Name,
-			Namespace:             NAMESPACE,
+			Name:                  newName,
+			Namespace:             newNamespace,
 			Port:                  in.Port,
 			MeshFedConfigSelector: in.MeshFedConfigSelector,
 			Endpoints:             in.Endpoints,
-			// TODO Alias: in.Alias,
+			// TODO Alias: in.Alias, // This is the alias on the binding side
 		},
 	}
 }
@@ -92,11 +102,11 @@ func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.Exp
 	}
 
 	for _, v := range in.GetExposedServices() {
-		goalNv := newServiceBinding(v, in.GetName())
+		goalNv := newServiceBinding(v)
 		nv := &mmv1.ServiceBinding{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      goalNv.GetName(),
-				Namespace: goalNv.GetNamespace(),
+				Name:      goalNv.ObjectMeta.Name,
+				Namespace: goalNv.ObjectMeta.Namespace,
 			},
 		}
 		_, err := controllerutil.CreateOrUpdate(context.Background(), sbr.Client, nv, func() error {
@@ -109,20 +119,32 @@ func createServiceBindings(sbr *controllers.ServiceBindingReconciler, in *pb.Exp
 			return err
 		}
 		disc.discoveredServices[v.GetName()] = CREATED
+
 	}
 
 	for k := range disc.discoveredServices {
 		if disc.discoveredServices[k] == CLEAR {
+			var newName, newNamespace string
+			s := strings.Split(k, "/")
+			if len(s) == 2 {
+				newNamespace = s[0]
+				newName = s[1]
+			} else {
+				newNamespace = DEFAULT_NAMESPACE
+				newName = s[0]
+			}
+
 			var binding mmv1.ServiceBinding
 			nsn := types.NamespacedName{
-				Name:      k,
-				Namespace: NAMESPACE,
+				Name:      newName,
+				Namespace: newNamespace,
 			}
 			if err := sbr.Client.Get(context.Background(), nsn, &binding); err == nil {
 				sbr.Client.Delete(context.Background(), &binding)
 			} else {
 				log.Warnf("error in cleanup of deleted discovered service: %v", err)
 			}
+			delete(disc.discoveredServices, k)
 		}
 	}
 	return nil
