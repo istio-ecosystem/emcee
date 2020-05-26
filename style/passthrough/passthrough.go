@@ -365,7 +365,7 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 	port := boundLocalPort(sb)
 
 	if len(sb.Spec.Endpoints) == 0 {
-		log.Warnf("no endpoints found for service binding: %v")
+		log.Warnf("no endpoints found for service binding: %v", sb.GetName())
 		return nil
 	}
 
