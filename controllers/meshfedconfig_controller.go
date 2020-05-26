@@ -20,7 +20,7 @@ import (
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 
-	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/pkg/log"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"

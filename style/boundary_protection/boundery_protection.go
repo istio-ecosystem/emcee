@@ -27,7 +27,8 @@ import (
 	"github.com/istio-ecosystem/emcee/style"
 	mfutil "github.com/istio-ecosystem/emcee/util"
 
-	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,7 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 )
 
 type boundaryProtection struct {
@@ -242,8 +243,8 @@ func boundaryProtectionExposingGatewayAndVs(mfc *mmv1.MeshFedConfig, se *mmv1.Se
 					Protocol: "HTTPS",
 				},
 				Hosts: []string{"*"},
-				Tls: &istiov1alpha3.Server_TLSOptions{
-					Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
+				Tls: &istiov1alpha3.ServerTLSSettings{
+					Mode:              istiov1alpha3.ServerTLSSettings_MUTUAL,
 					ServerCertificate: certificatesDir + "tls.crt",
 					PrivateKey:        certificatesDir + "tls.key",
 					CaCertificates:    certificatesDir + "example.com.crt",
@@ -262,9 +263,7 @@ func boundaryProtectionExposingGatewayAndVs(mfc *mmv1.MeshFedConfig, se *mmv1.Se
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 		},
-		Spec: v1alpha3.GatewaySpec{
-			Gateway: gateway,
-		},
+		Spec: gateway,
 	}
 
 	gw.ObjectMeta.Name = name
@@ -322,9 +321,7 @@ func boundaryProtectionExposingGatewayAndVs(mfc *mmv1.MeshFedConfig, se *mmv1.Se
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 		},
-		Spec: v1alpha3.VirtualServiceSpec{
-			VirtualService: virtualService,
-		},
+		Spec: virtualService,
 	}
 	vs.ObjectMeta.Name = name
 	if uid != "" {
@@ -997,23 +994,21 @@ func boundaryProtectionRemoteDestinationRule(namespace string, mfc *mmv1.MeshFed
 			},
 			OwnerReferences: ownerReference(mfc.APIVersion, mfc.Kind, mfc.ObjectMeta),
 		},
-		Spec: v1alpha3.DestinationRuleSpec{
-			DestinationRule: istiov1alpha3.DestinationRule{
-				Host:     serviceRemoteName(mfc, sb),
-				ExportTo: []string{"."},
-				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
-					PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
-						&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
-							Port: &istiov1alpha3.PortSelector{
-								Number: 15443,
-							},
-							Tls: &istiov1alpha3.TLSSettings{
-								Mode:              istiov1alpha3.TLSSettings_MUTUAL,
-								ClientCertificate: certificatesDir + "tls.crt",
-								PrivateKey:        certificatesDir + "tls.key",
-								CaCertificates:    certificatesDir + "example.com.crt", // TODO Where do I get this?
-								Sni:               "c2.example.com",                    // TODO Where do I get this?
-							},
+		Spec: istiov1alpha3.DestinationRule{
+			Host:     serviceRemoteName(mfc, sb),
+			ExportTo: []string{"."},
+			TrafficPolicy: &istiov1alpha3.TrafficPolicy{
+				PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+					&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+						Port: &istiov1alpha3.PortSelector{
+							Number: 15443,
+						},
+						Tls: &istiov1alpha3.ClientTLSSettings{
+							Mode:              istiov1alpha3.ClientTLSSettings_MUTUAL,
+							ClientCertificate: certificatesDir + "tls.crt",
+							PrivateKey:        certificatesDir + "tls.key",
+							CaCertificates:    certificatesDir + "example.com.crt", // TODO Where do I get this?
+							Sni:               "c2.example.com",                    // TODO Where do I get this?
 						},
 					},
 				},
@@ -1086,25 +1081,23 @@ func boundaryProtectionLocalServiceGateway(gwSvcName, namespace string, sb *mmv1
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
-		Spec: v1alpha3.GatewaySpec{
-			Gateway: istiov1alpha3.Gateway{
-				Selector: mfc.Spec.EgressGatewaySelector, // TODO Handle the case where we defaulted this
-				Servers: []*istiov1alpha3.Server{
-					{
-						Port: &istiov1alpha3.Port{
-							Name:     "tls",
-							Number:   443,
-							Protocol: "TLS",
-						},
-						Hosts: []string{
-							fmt.Sprintf("%s.%s.svc.cluster.local", sb.Spec.Name, sb.Spec.Namespace),
-						},
-						Tls: &istiov1alpha3.Server_TLSOptions{
-							Mode:              istiov1alpha3.Server_TLSOptions_MUTUAL,
-							ServerCertificate: "/etc/certs/cert-chain.pem",
-							PrivateKey:        "/etc/certs/key.pem",
-							CaCertificates:    "/etc/certs/root-cert.pem",
-						},
+		Spec: istiov1alpha3.Gateway{
+			Selector: mfc.Spec.EgressGatewaySelector, // TODO Handle the case where we defaulted this
+			Servers: []*istiov1alpha3.Server{
+				{
+					Port: &istiov1alpha3.Port{
+						Name:     "tls",
+						Number:   443,
+						Protocol: "TLS",
+					},
+					Hosts: []string{
+						fmt.Sprintf("%s.%s.svc.cluster.local", sb.Spec.Name, sb.Spec.Namespace),
+					},
+					Tls: &istiov1alpha3.ServerTLSSettings{
+						Mode:              istiov1alpha3.ServerTLSSettings_MUTUAL,
+						ServerCertificate: "/etc/certs/cert-chain.pem",
+						PrivateKey:        "/etc/certs/key.pem",
+						CaCertificates:    "/etc/certs/root-cert.pem",
 					},
 				},
 			},
@@ -1125,26 +1118,24 @@ func boundaryProtectionLocalServiceDestinationRule(gwSvcName, namespace string, 
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
-		Spec: v1alpha3.DestinationRuleSpec{
-			DestinationRule: istiov1alpha3.DestinationRule{
-				Host:     fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), namespace),
-				ExportTo: []string{"*"},
-				Subsets: []*istiov1alpha3.Subset{
-					{
-						Name: serviceIntermeshName(sb.GetName()),
-						TrafficPolicy: &istiov1alpha3.TrafficPolicy{
-							LoadBalancer: &istiov1alpha3.LoadBalancerSettings{
-								LbPolicy: &istiov1alpha3.LoadBalancerSettings_Simple{},
-							},
-							PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
-								&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
-									Port: &istiov1alpha3.PortSelector{
-										Number: 443,
-									},
-									Tls: &istiov1alpha3.TLSSettings{
-										Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
-										Sni:  fmt.Sprintf("%s.%s.svc.cluster.local", sb.Spec.Name, sb.Spec.Namespace),
-									},
+		Spec: istiov1alpha3.DestinationRule{
+			Host:     fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), namespace),
+			ExportTo: []string{"*"},
+			Subsets: []*istiov1alpha3.Subset{
+				{
+					Name: serviceIntermeshName(sb.GetName()),
+					TrafficPolicy: &istiov1alpha3.TrafficPolicy{
+						LoadBalancer: &istiov1alpha3.LoadBalancerSettings{
+							LbPolicy: &istiov1alpha3.LoadBalancerSettings_Simple{},
+						},
+						PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+							&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+								Port: &istiov1alpha3.PortSelector{
+									Number: 443,
+								},
+								Tls: &istiov1alpha3.ClientTLSSettings{
+									Mode: istiov1alpha3.ClientTLSSettings_ISTIO_MUTUAL,
+									Sni:  fmt.Sprintf("%s.%s.svc.cluster.local", sb.Spec.Name, sb.Spec.Namespace),
 								},
 							},
 						},
@@ -1170,26 +1161,24 @@ func boundaryProtectionEgressExternalVirtualService(gwSvcName, namespace string,
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
-		Spec: v1alpha3.VirtualServiceSpec{
-			VirtualService: istiov1alpha3.VirtualService{
-				Hosts:    []string{fmt.Sprintf("%s.%s.svc.cluster.local", sb.Spec.Name, sb.Spec.Namespace)},
-				Gateways: []string{fmt.Sprintf("istio-%s-%s", mfc.GetName(), gwSvcName)},
-				Tcp: []*istiov1alpha3.TCPRoute{
-					{
-						Match: []*istiov1alpha3.L4MatchAttributes{
-							{
-								Port: 443,
-							},
+		Spec: istiov1alpha3.VirtualService{
+			Hosts:    []string{fmt.Sprintf("%s.%s.svc.cluster.local", sb.Spec.Name, sb.Spec.Namespace)},
+			Gateways: []string{fmt.Sprintf("istio-%s-%s", mfc.GetName(), gwSvcName)},
+			Tcp: []*istiov1alpha3.TCPRoute{
+				{
+					Match: []*istiov1alpha3.L4MatchAttributes{
+						{
+							Port: 443,
 						},
-						Route: []*istiov1alpha3.RouteDestination{
-							{
-								Destination: &istiov1alpha3.Destination{
-									Host: fmt.Sprintf("%s.%s.svc.cluster.local", serviceRemoteName(mfc, sb), namespace),
-									Port: &istiov1alpha3.PortSelector{
-										Number: 15443,
-									},
-									// Skip weight, it should default to 100 if left blank
+					},
+					Route: []*istiov1alpha3.RouteDestination{
+						{
+							Destination: &istiov1alpha3.Destination{
+								Host: fmt.Sprintf("%s.%s.svc.cluster.local", serviceRemoteName(mfc, sb), namespace),
+								Port: &istiov1alpha3.PortSelector{
+									Number: 15443,
 								},
+								// Skip weight, it should default to 100 if left blank
 							},
 						},
 					},
@@ -1228,35 +1217,33 @@ func boundaryProtectionLocalToEgressVirtualService(gwSvcName string, sb *mmv1.Se
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
-		Spec: v1alpha3.VirtualServiceSpec{
-			VirtualService: istiov1alpha3.VirtualService{
-				Hosts:    []string{boundLocalName(sb)},
-				ExportTo: []string{"."},
-				Http: []*istiov1alpha3.HTTPRoute{
-					{
-						Match: []*istiov1alpha3.HTTPMatchRequest{
-							{
-								Port: boundLocalPort(sb),
-								Uri: &istiov1alpha3.StringMatch{
-									MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: "/"},
-								},
+		Spec: istiov1alpha3.VirtualService{
+			Hosts:    []string{boundLocalName(sb)},
+			ExportTo: []string{"."},
+			Http: []*istiov1alpha3.HTTPRoute{
+				{
+					Match: []*istiov1alpha3.HTTPMatchRequest{
+						{
+							Port: boundLocalPort(sb),
+							Uri: &istiov1alpha3.StringMatch{
+								MatchType: &istiov1alpha3.StringMatch_Prefix{Prefix: "/"},
 							},
 						},
-						Rewrite: &istiov1alpha3.HTTPRewrite{
-							// See https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#HTTPRewrite
-							// This MUST match the ServiceExposition
-							Uri: servicePathBinding(sb),
-						},
-						Route: []*istiov1alpha3.HTTPRouteDestination{
-							{
-								Destination: &istiov1alpha3.Destination{
-									Host:   fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), mfc.GetNamespace()),
-									Subset: gwSvcName,
-									Port: &istiov1alpha3.PortSelector{
-										Number: 443,
-									},
-									// Skip weight, it should default to 100 if left blank
+					},
+					Rewrite: &istiov1alpha3.HTTPRewrite{
+						// See https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#HTTPRewrite
+						// This MUST match the ServiceExposition
+						Uri: servicePathBinding(sb),
+					},
+					Route: []*istiov1alpha3.HTTPRouteDestination{
+						{
+							Destination: &istiov1alpha3.Destination{
+								Host:   fmt.Sprintf("istio-%s-egress-%d.%s.svc.cluster.local", mfc.GetName(), int32(mfc.Spec.EgressGatewayPort), mfc.GetNamespace()),
+								Subset: gwSvcName,
+								Port: &istiov1alpha3.PortSelector{
+									Number: 443,
 								},
+								// Skip weight, it should default to 100 if left blank
 							},
 						},
 					},

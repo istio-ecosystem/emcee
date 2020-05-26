@@ -26,8 +26,9 @@ import (
 	"github.com/istio-ecosystem/emcee/style"
 	"istio.io/pkg/log"
 
-	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
-	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -222,24 +223,22 @@ func passthroughExposingGateway(mfc *mmv1.MeshFedConfig, se *mmv1.ServiceExposit
 			},
 			OwnerReferences: ownerReference(se.APIVersion, se.Kind, se.ObjectMeta),
 		},
-		Spec: v1alpha3.GatewaySpec{
-			Gateway: istiov1alpha3.Gateway{
-				Servers: []*istiov1alpha3.Server{
-					&istiov1alpha3.Server{
-						Hosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace
-						// Hosts: []string{"*.svc.cluster.local"},
-						Port: &istiov1alpha3.Port{
-							Number:   portToListen,
-							Protocol: "TLS",
-							Name:     se.Spec.Name,
-						},
-						Tls: &istiov1alpha3.Server_TLSOptions{
-							Mode: istiov1alpha3.Server_TLSOptions_PASSTHROUGH, // Auto Passthrough does not allow aliases hence Passthrough
-						},
+		Spec: istiov1alpha3.Gateway{
+			Servers: []*istiov1alpha3.Server{
+				&istiov1alpha3.Server{
+					Hosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace())}, // TODO intermeshNamespace
+					// Hosts: []string{"*.svc.cluster.local"},
+					Port: &istiov1alpha3.Port{
+						Number:   portToListen,
+						Protocol: "TLS",
+						Name:     se.Spec.Name,
+					},
+					Tls: &istiov1alpha3.ServerTLSSettings{
+						Mode: istiov1alpha3.ServerTLSSettings_PASSTHROUGH, // Auto Passthrough does not allow aliases hence Passthrough
 					},
 				},
-				Selector: mfc.Spec.IngressGatewaySelector, // TODO: default to: map[string]string {"istio": "ingressgateway}",
 			},
+			Selector: mfc.Spec.IngressGatewaySelector, // TODO: default to: map[string]string {"istio": "ingressgateway}",
 		},
 	}, nil
 }
@@ -266,27 +265,25 @@ func passthroughExposingVirtualService(mfc *mmv1.MeshFedConfig, se *mmv1.Service
 			},
 			OwnerReferences: ownerReference(se.APIVersion, se.Kind, se.ObjectMeta),
 		},
-		Spec: v1alpha3.VirtualServiceSpec{
-			VirtualService: istiov1alpha3.VirtualService{
-				Hosts:    []string{"*"}, // fmt.Sprintf("%s.%s.svc.cluster.local", exposedLocalName(se), se.GetNamespace())}, // TODO Why need the "*"?
-				Gateways: []string{serviceExposeName(mfc.GetName(), se.GetName())},
-				Tls: []*istiov1alpha3.TLSRoute{
-					{
-						Match: []*istiov1alpha3.TLSMatchAttributes{
-							&istiov1alpha3.TLSMatchAttributes{
-								Port:     portToListen,
-								SniHosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", exposedLocalName(se), se.GetNamespace())},
-							},
+		Spec: istiov1alpha3.VirtualService{
+			Hosts:    []string{"*"}, // fmt.Sprintf("%s.%s.svc.cluster.local", exposedLocalName(se), se.GetNamespace())}, // TODO Why need the "*"?
+			Gateways: []string{serviceExposeName(mfc.GetName(), se.GetName())},
+			Tls: []*istiov1alpha3.TLSRoute{
+				{
+					Match: []*istiov1alpha3.TLSMatchAttributes{
+						&istiov1alpha3.TLSMatchAttributes{
+							Port:     portToListen,
+							SniHosts: []string{fmt.Sprintf("%s.%s.svc.cluster.local", exposedLocalName(se), se.GetNamespace())},
 						},
-						Route: []*istiov1alpha3.RouteDestination{
-							{
-								Destination: &istiov1alpha3.Destination{
-									Host: fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace()),
-									Port: &istiov1alpha3.PortSelector{
-										Number: se.Spec.Port,
-									},
-									Subset: "notls",
+					},
+					Route: []*istiov1alpha3.RouteDestination{
+						{
+							Destination: &istiov1alpha3.Destination{
+								Host: fmt.Sprintf("%s.%s.svc.cluster.local", se.Spec.Name, se.GetNamespace()),
+								Port: &istiov1alpha3.PortSelector{
+									Number: se.Spec.Port,
 								},
+								Subset: "notls",
 							},
 						},
 					},
@@ -317,23 +314,21 @@ func passthroughExposingDestinationRule(mfc *mmv1.MeshFedConfig, se *mmv1.Servic
 			},
 			OwnerReferences: ownerReference(se.APIVersion, se.Kind, se.ObjectMeta),
 		},
-		Spec: v1alpha3.DestinationRuleSpec{
-			DestinationRule: istiov1alpha3.DestinationRule{
-				Host: svcName,
-				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
-					Tls: &istiov1alpha3.TLSSettings{
-						// TODO: subset does not seem to take aeffect
-						//       this is a temporary fix
-						Mode: istiov1alpha3.TLSSettings_DISABLE, // istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
-					},
+		Spec: istiov1alpha3.DestinationRule{
+			Host: svcName,
+			TrafficPolicy: &istiov1alpha3.TrafficPolicy{
+				Tls: &istiov1alpha3.ClientTLSSettings{
+					// TODO: subset does not seem to take aeffect
+					//       this is a temporary fix
+					Mode: istiov1alpha3.ClientTLSSettings_DISABLE, // istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
 				},
-				Subsets: []*istiov1alpha3.Subset{
-					&istiov1alpha3.Subset{
-						Name: "notls",
-						TrafficPolicy: &istiov1alpha3.TrafficPolicy{
-							Tls: &istiov1alpha3.TLSSettings{
-								Mode: istiov1alpha3.TLSSettings_DISABLE,
-							},
+			},
+			Subsets: []*istiov1alpha3.Subset{
+				&istiov1alpha3.Subset{
+					Name: "notls",
+					TrafficPolicy: &istiov1alpha3.TrafficPolicy{
+						Tls: &istiov1alpha3.ClientTLSSettings{
+							Mode: istiov1alpha3.ClientTLSSettings_DISABLE,
 						},
 					},
 				},
@@ -393,30 +388,28 @@ func passthroughBindingServiceEntry(mfc *mmv1.MeshFedConfig, sb *mmv1.ServiceBin
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
-		Spec: v1alpha3.ServiceEntrySpec{
-			ServiceEntry: istiov1alpha3.ServiceEntry{
-				Hosts: []string{
-					// Note that this must be the local name, even if a DestinationRule has altered the SNI (tested in Istio 1.4.0)
-					fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace), // TODO intermeshNamespace
+		Spec: istiov1alpha3.ServiceEntry{
+			Hosts: []string{
+				// Note that this must be the local name, even if a DestinationRule has altered the SNI (tested in Istio 1.4.0)
+				fmt.Sprintf("%s.%s.svc.cluster.local", name, namespace), // TODO intermeshNamespace
+			},
+			Ports: []*istiov1alpha3.Port{
+				&istiov1alpha3.Port{
+					Name:     "http",
+					Number:   port,
+					Protocol: "HTTP",
 				},
-				Ports: []*istiov1alpha3.Port{
-					&istiov1alpha3.Port{
-						Name:     "http",
-						Number:   port,
-						Protocol: "HTTP",
+			},
+			Resolution: istiov1alpha3.ServiceEntry_STATIC,
+			Location:   istiov1alpha3.ServiceEntry_MESH_INTERNAL,
+			Endpoints: []*istiov1alpha3.WorkloadEntry{
+				&istiov1alpha3.WorkloadEntry{
+					Address: epAddress,
+					Ports: map[string]uint32{
+						"http": uint32(epPort),
 					},
-				},
-				Resolution: istiov1alpha3.ServiceEntry_STATIC,
-				Location:   istiov1alpha3.ServiceEntry_MESH_INTERNAL,
-				Endpoints: []*istiov1alpha3.ServiceEntry_Endpoint{
-					&istiov1alpha3.ServiceEntry_Endpoint{
-						Address: epAddress,
-						Ports: map[string]uint32{
-							"http": uint32(epPort),
-						},
-						Locality: "us-north/007", // TODO use locality provided in discovery
-						Network:  "NorthStar",
-					},
+					Locality: "us-north/007", // TODO use locality provided in discovery
+					Network:  "NorthStar",
 				},
 			},
 		},
@@ -445,38 +438,36 @@ func passthroughBindingDestinationRule(mfc *mmv1.MeshFedConfig, sb *mmv1.Service
 			},
 			OwnerReferences: ownerReference(sb.APIVersion, sb.Kind, sb.ObjectMeta),
 		},
-		Spec: v1alpha3.DestinationRuleSpec{
-			DestinationRule: istiov1alpha3.DestinationRule{
-				Host: svcLocalName,
-				TrafficPolicy: &istiov1alpha3.TrafficPolicy{
-					PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
-						&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
-							Port: &istiov1alpha3.PortSelector{
-								Number: boundLocalPort(sb),
+		Spec: istiov1alpha3.DestinationRule{
+			Host: svcLocalName,
+			TrafficPolicy: &istiov1alpha3.TrafficPolicy{
+				PortLevelSettings: []*istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+					&istiov1alpha3.TrafficPolicy_PortTrafficPolicy{
+						Port: &istiov1alpha3.PortSelector{
+							Number: boundLocalPort(sb),
+						},
+						ConnectionPool: &istiov1alpha3.ConnectionPoolSettings{
+							Http: &istiov1alpha3.ConnectionPoolSettings_HTTPSettings{
+								Http2MaxRequests:         1000,
+								MaxRequestsPerConnection: 10,
 							},
-							ConnectionPool: &istiov1alpha3.ConnectionPoolSettings{
-								Http: &istiov1alpha3.ConnectionPoolSettings_HTTPSettings{
-									Http2MaxRequests:         1000,
-									MaxRequestsPerConnection: 10,
-								},
-								Tcp: &istiov1alpha3.ConnectionPoolSettings_TCPSettings{
-									MaxConnections: 100,
-								},
+							Tcp: &istiov1alpha3.ConnectionPoolSettings_TCPSettings{
+								MaxConnections: 100,
 							},
-							OutlierDetection: &istiov1alpha3.OutlierDetection{
-								BaseEjectionTime: &types.Duration{
-									Seconds: 20,
-								},
-								ConsecutiveErrors: 2,
-								Interval: &types.Duration{
-									Seconds: 5,
-								},
-								MaxEjectionPercent: 75,
+						},
+						OutlierDetection: &istiov1alpha3.OutlierDetection{
+							BaseEjectionTime: &types.Duration{
+								Seconds: 20,
 							},
-							Tls: &istiov1alpha3.TLSSettings{
-								Mode: istiov1alpha3.TLSSettings_ISTIO_MUTUAL,
-								Sni:  svcName,
+							ConsecutiveErrors: 2,
+							Interval: &types.Duration{
+								Seconds: 5,
 							},
+							MaxEjectionPercent: 75,
+						},
+						Tls: &istiov1alpha3.ClientTLSSettings{
+							Mode: istiov1alpha3.ClientTLSSettings_ISTIO_MUTUAL,
+							Sni:  svcName,
 						},
 					},
 				},

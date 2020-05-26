@@ -22,7 +22,7 @@ import (
 	"os"
 	"strings"
 
-	versionedclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 	"github.com/istio-ecosystem/emcee/controllers"

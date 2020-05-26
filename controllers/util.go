@@ -25,7 +25,8 @@ import (
 	"github.com/istio-ecosystem/emcee/style/boundary_protection"
 	"github.com/istio-ecosystem/emcee/style/passthrough"
 
-	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
 	"istio.io/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
