@@ -73,6 +73,10 @@ preconditions() {
         ps -ef | grep 8081 | grep emcee
         exit 4
     fi
+
+    # Verify I can talk to the clusters
+    kubectl --context $CLUSTER1 version
+    kubectl --context $CLUSTER2 version
 }
 
 remove_finalizers() {

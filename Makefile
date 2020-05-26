@@ -11,15 +11,19 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: manager
+all: emcee
 
 # Run tests
 test: generate fmt vet manifests
 	go test ./... -coverprofile cover.out
 
-# Build manager binary
+# Build manager binary (deprecated)
 manager: generate fmt vet
 	go build -o bin/manager main.go
+
+# Build emcee binary
+emcee: generate fmt vet
+	go build -o bin/emcee main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
