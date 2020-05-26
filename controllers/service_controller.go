@@ -22,7 +22,8 @@ import (
 
 	mmv1 "github.com/istio-ecosystem/emcee/api/v1"
 
-	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
 	"istio.io/pkg/log"
 	k8sapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

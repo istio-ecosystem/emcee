@@ -19,8 +19,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
-	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
 	istiov1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
@@ -59,9 +60,7 @@ func CreateIstioGateway(r istioclient.Interface, name string, namespace string, 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 		},
-		Spec: v1alpha3.GatewaySpec{
-			Gateway: gateway,
-		},
+		Spec: gateway,
 	}
 
 	gw.ObjectMeta.Name = name
@@ -79,15 +78,15 @@ func CreateIstioGateway(r istioclient.Interface, name string, namespace string, 
 		}
 	}
 
-	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(gw)
+	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(context.TODO(), gw, metav1.CreateOptions{})
 	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
 	if ErrorAlreadyExists(err) {
-		updatedGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Get(name, metav1.GetOptions{})
+		updatedGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			return updatedGateway, err
 		}
 		updatedGateway.Spec = gw.Spec
-		updatedGateway, err = r.NetworkingV1alpha3().Gateways(namespace).Update(updatedGateway)
+		updatedGateway, err = r.NetworkingV1alpha3().Gateways(namespace).Update(context.TODO(), updatedGateway, metav1.UpdateOptions{})
 		return updatedGateway, err
 	} else {
 		return createdGateway, err
@@ -95,7 +94,7 @@ func CreateIstioGateway(r istioclient.Interface, name string, namespace string, 
 }
 
 func DeleteIstioGateway(r istioclient.Interface, name string, namespace string) error {
-	if err := r.NetworkingV1alpha3().Gateways(namespace).Delete(name, nil); err != nil {
+	if err := r.NetworkingV1alpha3().Gateways(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
 		log.Warnf("Delete an egress gateway: <Error: %v>", err)
 		return err
 	}
@@ -110,9 +109,7 @@ func CreateIstioVirtualService(r istioclient.Interface, name string, namespace s
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 		},
-		Spec: v1alpha3.VirtualServiceSpec{
-			VirtualService: virtualservice,
-		},
+		Spec: virtualservice,
 	}
 	vs.ObjectMeta.Name = name
 	if uid != "" {
@@ -128,15 +125,15 @@ func CreateIstioVirtualService(r istioclient.Interface, name string, namespace s
 			},
 		}
 	}
-	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
+	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(context.TODO(), vs, metav1.CreateOptions{})
 	// log.Infof("create an Virtual Service: <Error: %v VS: %v>", err, createdVirtualService)
 	if ErrorAlreadyExists(err) {
-		updatedVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(name, metav1.GetOptions{})
+		updatedVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			return updatedVirtualService, err
 		}
 		updatedVirtualService.Spec = vs.Spec
-		updatedVirtualService, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(updatedVirtualService)
+		updatedVirtualService, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(context.TODO(), updatedVirtualService, metav1.UpdateOptions{})
 		return updatedVirtualService, err
 	} else {
 		return createdVirtualService, err
@@ -144,7 +141,7 @@ func CreateIstioVirtualService(r istioclient.Interface, name string, namespace s
 }
 
 func DeleteIstioVirtualService(r istioclient.Interface, name string, namespace string) error {
-	if err := r.NetworkingV1alpha3().VirtualServices(namespace).Delete(name, nil); err != nil {
+	if err := r.NetworkingV1alpha3().VirtualServices(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
 		log.Warnf("Delete a virtual service: <Error: %v>", err)
 		return err
 	}

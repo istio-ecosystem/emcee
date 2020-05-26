@@ -19,8 +19,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aspenmesh/istio-client-go/pkg/apis/networking/v1alpha3"
-	istioclient "github.com/aspenmesh/istio-client-go/pkg/client/clientset/versioned"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
 	mfutil "github.com/istio-ecosystem/emcee/util"
 	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
@@ -43,64 +44,64 @@ const (
 //)
 
 func createGateway(r istioclient.Interface, namespace string, gateway *v1alpha3.Gateway) (*v1alpha3.Gateway, error) {
-	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(gateway)
+	createdGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Create(context.TODO(), gateway, metav1.CreateOptions{})
 	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
 	if mfutil.ErrorAlreadyExists(err) {
-		updatedGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Get(gateway.GetName(), metav1.GetOptions{})
+		updatedGateway, err := r.NetworkingV1alpha3().Gateways(namespace).Get(context.TODO(), gateway.GetName(), metav1.GetOptions{})
 		if err != nil {
 			log.Warnf("Failed updating Istio gateway %v: %v", gateway.GetName(), err)
 			return updatedGateway, err
 		}
 		updatedGateway.Spec = gateway.Spec
-		updatedGateway, err = r.NetworkingV1alpha3().Gateways(namespace).Update(updatedGateway)
+		updatedGateway, err = r.NetworkingV1alpha3().Gateways(namespace).Update(context.TODO(), updatedGateway, metav1.UpdateOptions{})
 		return updatedGateway, err
 	}
 	return createdGateway, err
 }
 
 func createVirtualService(r istioclient.Interface, namespace string, vs *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
-	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(vs)
+	createdVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Create(context.TODO(), vs, metav1.CreateOptions{})
 	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
 	if mfutil.ErrorAlreadyExists(err) {
-		updatedVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(vs.GetName(), metav1.GetOptions{})
+		updatedVirtualService, err := r.NetworkingV1alpha3().VirtualServices(namespace).Get(context.TODO(), vs.GetName(), metav1.GetOptions{})
 		if err != nil {
 			log.Warnf("Failed updating Istio virtual service %v: %v", vs.GetName(), err)
 			return updatedVirtualService, err
 		}
 		updatedVirtualService.Spec = vs.Spec
-		updatedVirtualService, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(updatedVirtualService)
+		updatedVirtualService, err = r.NetworkingV1alpha3().VirtualServices(namespace).Update(context.TODO(), updatedVirtualService, metav1.UpdateOptions{})
 		return updatedVirtualService, err
 	}
 	return createdVirtualService, err
 }
 
 func createDestinationRule(r istioclient.Interface, namespace string, dr *v1alpha3.DestinationRule) (*v1alpha3.DestinationRule, error) {
-	createdDestinationRule, err := r.NetworkingV1alpha3().DestinationRules(namespace).Create(dr)
+	createdDestinationRule, err := r.NetworkingV1alpha3().DestinationRules(namespace).Create(context.TODO(), dr, metav1.CreateOptions{})
 	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
 	if mfutil.ErrorAlreadyExists(err) {
-		updatedDestinationRule, err := r.NetworkingV1alpha3().DestinationRules(namespace).Get(dr.GetName(), metav1.GetOptions{})
+		updatedDestinationRule, err := r.NetworkingV1alpha3().DestinationRules(namespace).Get(context.TODO(), dr.GetName(), metav1.GetOptions{})
 		if err != nil {
 			log.Warnf("Failed updating Istio gateway %v: %v", dr.GetName(), err)
 			return updatedDestinationRule, err
 		}
 		updatedDestinationRule.Spec = dr.Spec
-		updatedDestinationRule, err = r.NetworkingV1alpha3().DestinationRules(namespace).Update(updatedDestinationRule)
+		updatedDestinationRule, err = r.NetworkingV1alpha3().DestinationRules(namespace).Update(context.TODO(), updatedDestinationRule, metav1.UpdateOptions{})
 		return updatedDestinationRule, err
 	}
 	return createdDestinationRule, err
 }
 
 func createServiceEntry(r istioclient.Interface, namespace string, dr *v1alpha3.ServiceEntry) (*v1alpha3.ServiceEntry, error) {
-	createdServiceEntry, err := r.NetworkingV1alpha3().ServiceEntries(namespace).Create(dr)
+	createdServiceEntry, err := r.NetworkingV1alpha3().ServiceEntries(namespace).Create(context.TODO(), dr, metav1.CreateOptions{})
 	// log.Infof("create an egress gateway: <Error: %v Gateway: %v>", err, createdGateway)
 	if mfutil.ErrorAlreadyExists(err) {
-		updatedServiceEntry, err := r.NetworkingV1alpha3().ServiceEntries(namespace).Get(dr.GetName(), metav1.GetOptions{})
+		updatedServiceEntry, err := r.NetworkingV1alpha3().ServiceEntries(namespace).Get(context.TODO(), dr.GetName(), metav1.GetOptions{})
 		if err != nil {
 			log.Warnf("Failed updating Istio gateway %v: %v", dr.GetName(), err)
 			return updatedServiceEntry, err
 		}
 		updatedServiceEntry.Spec = dr.Spec
-		updatedServiceEntry, err = r.NetworkingV1alpha3().ServiceEntries(namespace).Update(updatedServiceEntry)
+		updatedServiceEntry, err = r.NetworkingV1alpha3().ServiceEntries(namespace).Update(context.TODO(), updatedServiceEntry, metav1.UpdateOptions{})
 		return updatedServiceEntry, err
 	}
 	return createdServiceEntry, err
