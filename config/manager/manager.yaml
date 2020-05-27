@@ -5,6 +5,86 @@ metadata:
     control-plane: controller-manager
   name: system
 ---
+# Notes
+# 1. This RBAC is hand generated, I don't know if KubeBuilder should be used instead
+# 2. This RBAC has been tested with passthrough.  More permissions will be needed for the things limited-trust creates
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: emcee
+  namespace: system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: system
+  name: cm-reader
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["configmaps"]
+  verbs: ["get", "watch", "list", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: emcee-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: manager-role  # defined in config/rbac/role.yaml
+subjects:
+- kind: ServiceAccount
+  name: emcee
+  namespace: system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-cm
+  namespace: system
+subjects:
+- kind: ServiceAccount
+  name: emcee
+  namespace: system
+roleRef:
+  kind: Role
+  name: cm-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: emcee-controller
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - create
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - serviceentries
+  verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: emcee-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: emcee-controller
+subjects:
+- kind: ServiceAccount
+  name: emcee
+  namespace: system
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,11 +102,14 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
+      serviceAccountName: emcee
       containers:
       - command:
         - /manager
         args:
         - --enable-leader-election
+        - --grpc-server-addr
+        - :50052
         image: controller:latest
         imagePullPolicy: Always
         name: manager

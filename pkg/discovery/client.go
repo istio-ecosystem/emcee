@@ -303,7 +303,7 @@ func client(ctx context.Context, sbr *controllers.ServiceBindingReconciler, disc
 			}
 			log.Infof("Received ESDA Discovery message: <%v>", in)
 			createServiceBindings(sbr, in, disc)
-			log.Infof("Processd ESDA Discovery message")
+			log.Infof("Processed ESDA Discovery message")
 		}
 	}()
 
