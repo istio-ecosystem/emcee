@@ -58,22 +58,24 @@ func init() {
 
 func main() {
 	var (
-		metricsAddr           string
-		k8sContext            string
-		enableLeaderElection  bool
-		grpcServerAddr        string
-		grpcDiscoveryLabel    string
-		grpcDiscoveryLabelKey string
-		grpcDiscoveryLabelVal string
-		autoExposeLabel       string
-		autoExposeLabelKey    string
-		autoExposeAsLabel     string
-		autoExposeAsLabelKey  string
+		metricsAddr             string
+		k8sContext              string
+		enableLeaderElection    bool
+		leaderElectionNamespace string
+		grpcServerAddr          string
+		grpcDiscoveryLabel      string
+		grpcDiscoveryLabelKey   string
+		grpcDiscoveryLabelVal   string
+		autoExposeLabel         string
+		autoExposeLabelKey      string
+		autoExposeAsLabel       string
+		autoExposeAsLabelKey    string
 	)
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&k8sContext, "context", "", "Kubernetes context")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&leaderElectionNamespace, "leader-election-namespace", "", "Kubernetes namespace.")
 	flag.StringVar(&grpcServerAddr, "grpc-server-addr", grpcServerAddress, "The address the grpc server endpoint binds to.")
 	flag.StringVar(&grpcDiscoveryLabel, "discovery-label", discoveryLabel, "The label for grpc servers to connect to.")
 	flag.StringVar(&autoExposeLabel, "auto-expose-label", emceeAutoExposeLabel, "The label for auto exposing a service.")
@@ -99,10 +101,12 @@ func main() {
 	autoExposeAsLabelKey = emceeAutoExposeAsLabel
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		LeaderElection:     enableLeaderElection,
-		Port:               9443,
+		Scheme:                  scheme,
+		MetricsBindAddress:      metricsAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionNamespace: leaderElectionNamespace,
+		LeaderElectionID:        "emcee",
+		Port:                    9443,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
