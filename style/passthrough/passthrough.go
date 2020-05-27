@@ -109,19 +109,19 @@ func (pt *Passthrough) EffectServiceExposure(ctx context.Context, se *mmv1.Servi
 	dr := passthroughExposingDestinationRule(mfc, se)
 	_, err = createDestinationRule(pt.Interface, se.GetNamespace(), dr)
 	if err != nil {
-		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
+		log.Warnf("Could not create the Destination Rule %v: %v", dr.GetName(), err)
 	}
 
 	vs, _ := passthroughExposingVirtualService(mfc, se)
 	_, err = createVirtualService(pt.Interface, se.GetNamespace(), vs)
 	if err != nil {
-		log.Warnf("Could not created the Virtual Service %v: %v", vs.GetName(), err)
+		log.Warnf("Could not create the Virtual Service %v: %v", vs.GetName(), err)
 	}
 
 	gw, _ := passthroughExposingGateway(mfc, se)
 	_, err = createGateway(pt.Interface, se.GetNamespace(), gw)
 	if err != nil {
-		log.Warnf("Could not created the Gateway %v: %v", gw.GetName(), err)
+		log.Warnf("Could not create the Gateway %v: %v", gw.GetName(), err)
 	}
 
 	se.Status.Ready = true
@@ -147,7 +147,7 @@ func (pt *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.Servic
 	serviceEntry := passthroughBindingServiceEntry(mfc, sb)
 	_, err := createServiceEntry(pt.Interface, sb.GetNamespace(), serviceEntry)
 	if err != nil {
-		log.Warnf("Could not created the Service Entry %v: %v", serviceEntry.GetName(), err)
+		log.Warnf("Could not create the Service Entry %v: %v", serviceEntry.GetName(), err)
 	}
 
 	goalSvc := passthroughBindingService(sb, mfc)
@@ -177,7 +177,7 @@ func (pt *Passthrough) EffectServiceBinding(ctx context.Context, sb *mmv1.Servic
 	dr := passthroughBindingDestinationRule(mfc, sb)
 	_, err = createDestinationRule(pt.Interface, sb.GetNamespace(), dr)
 	if err != nil {
-		log.Warnf("Could not created the Destination Rule %v: %v", dr.GetName(), err)
+		log.Warnf("Could not create the Destination Rule %v: %v", dr.GetName(), err)
 	}
 
 	log.Infof("%s %s %s", or,
